@@ -853,9 +853,11 @@ document.getElementById('finFileInput').addEventListener('change', (e) => {
       for(let i=1;i<rows.length;i++){
         const cellVal = rows[i][0];
         if(!cellVal) continue;
-        const d = new Date(cellVal);
-        if(isNaN(d)) continue;
-        const ym = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+        const rawD = new Date(cellVal);
+        if(isNaN(rawD)) continue;
+        // round to nearest UTC day to absorb floating-point drift from Excel's date serial
+        const d = new Date(Math.round(rawD.getTime() / 86400000) * 86400000);
+        const ym = d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0');
         console.log('[Finances] Ligne', i, '- valeur brute:', cellVal, '- interprétée comme:', ym);
         if(ym === targetYM){ matchRow = rows[i]; break; }
       }
