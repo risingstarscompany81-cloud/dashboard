@@ -838,12 +838,17 @@ document.getElementById('finFileInput').addEventListener('change', (e) => {
   reader.onload = (evt) => {
     try{
       const wb = XLSX.read(evt.target.result, { type:'array', cellDates:true });
+      console.log('[Finances] Feuilles trouvées:', wb.SheetNames);
       const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('résumé') || n.toLowerCase().includes('resume')) || wb.SheetNames[0];
+      console.log('[Finances] Feuille utilisée:', sheetName);
       const sheet = wb.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(sheet, { header:1, raw:true });
+      console.log('[Finances] Nombre de lignes lues:', rows.length);
+      console.log("[Finances] Ligne d'en-tête:", rows[0]);
       // rows[0] = headers, data rows follow; find row matching current year-month
       const now = new Date();
       const targetYM = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+      console.log('[Finances] Mois recherché:', targetYM);
       let matchRow = null;
       for(let i=1;i<rows.length;i++){
         const cellVal = rows[i][0];
@@ -851,8 +856,10 @@ document.getElementById('finFileInput').addEventListener('change', (e) => {
         const d = new Date(cellVal);
         if(isNaN(d)) continue;
         const ym = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+        console.log('[Finances] Ligne', i, '- valeur brute:', cellVal, '- interprétée comme:', ym);
         if(ym === targetYM){ matchRow = rows[i]; break; }
       }
+      console.log('[Finances] Ligne trouvée pour le mois cible:', matchRow);
       if(!matchRow){
         document.getElementById('finBody').innerHTML = '<span class="muted-italic">Aucune ligne trouvée pour le mois en cours dans ce fichier.</span>';
         return;
@@ -866,6 +873,7 @@ document.getElementById('finFileInput').addEventListener('change', (e) => {
         marge: toNum(matchRow[9]),
         importedAt: now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
       };
+      console.log('[Finances] Données finales calculées:', data);
       storageSet(FINANCES_KEY, data);
       renderFinances(data);
     }catch(err){
