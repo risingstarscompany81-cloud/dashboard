@@ -679,11 +679,20 @@ document.getElementById('accSaveBtn').addEventListener('click', async () => {
 let editingSubId = null;
 const expandedSubs = new Set();
 
-function subStatus(dateStr){
+function subStatus(dateStr, payments){
   if(!dateStr) return 'ok';
   const today = new Date(); today.setHours(0,0,0,0);
   const target = new Date(dateStr);
   const diffDays = Math.round((target - today) / 86400000);
+  if(diffDays < 0) return 'urgent'; // renouvellement dépassé, priorité sur tout
+  // si un paiement a été enregistré dans les ~35 jours avant l'échéance, on considère le cycle réglé
+  const hasRecentPayment = (payments || []).some(p => {
+    if(!p.date) return false;
+    const pDate = new Date(p.date);
+    const daysBeforeRenewal = Math.round((target - pDate) / 86400000);
+    return daysBeforeRenewal >= 0 && daysBeforeRenewal <= 35;
+  });
+  if(hasRecentPayment) return 'ok';
   if(diffDays <= 7) return 'urgent';
   if(diffDays <= 30) return 'soon';
   return 'ok';
@@ -698,7 +707,7 @@ function renderSubs(){
   if(subs.length === 0){ list.innerHTML = '<li class="muted-italic">Ajoute un abonnement à suivre.</li>'; return; }
   const sorted = [...subs].sort((a,b) => (a.date || '9999').localeCompare(b.date || '9999'));
   list.innerHTML = sorted.map(s => {
-    const status = subStatus(s.date);
+    const status = subStatus(s.date, s.payments);
     const payments = s.payments || [];
     const lastPay = payments.length ? [...payments].sort((a,b) => b.date.localeCompare(a.date))[0] : null;
     const isOpen = expandedSubs.has(s.id);
