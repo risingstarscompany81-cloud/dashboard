@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comptes Instagram</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  :root{
+    --ink:#14213D; --text:#2B3345; --muted:#6B7385; --faint:#A3A9B8; --line:#E6E9F0;
+    --bg1:#F4F7FD; --bg2:#FFFFFF; --card:#FFFFFF;
+    --blue:#3B82F6; --blue-soft:#EEF4FF;
+    --violet:#8B5CF6; --violet-soft:#F4EFFF;
+    --orange:#F97316; --orange-soft:#FFF3EA;
+    --green:#10B981; --green-soft:#EAFBF4;
+    --ok:#0F9F6E; --warn:#F59E0B; --danger:#EF4444;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    min-height:100vh; color:var(--text);
+    font-family:'Inter',sans-serif; font-size:15px; line-height:1.5;
+    background:linear-gradient(160deg,var(--bg1) 0%,var(--bg2) 55%,#F8F5FF 100%);
+  }
+  .wrap{max-width:1040px;margin:0 auto;padding:22px 24px 90px;}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+  .pill-tag{display:inline-flex;align-items:center;border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:600;border:1.5px solid;background:#fff;}
+  .pill-tag.v{color:var(--violet);border-color:#C9B6FB;background:var(--violet-soft);}
+  .pill-tag.o{color:#C2570C;border-color:#F9C9A0;background:var(--orange-soft);}
+  .back{color:var(--muted);text-decoration:none;font-size:13px;font-weight:500;padding:6px 10px;border-radius:8px;}
+  .back:hover{background:#fff;color:var(--ink);}
+
+  .hero{text-align:center;padding:48px 0 8px;}
+  h1{font-size:clamp(40px,7vw,68px);font-weight:800;letter-spacing:-.03em;margin:0;color:var(--ink);line-height:1.05;}
+  .sub{font-size:19px;color:var(--muted);margin:12px 0 0;}
+  .rule{width:210px;height:1px;background:var(--line);margin:28px auto 34px;}
+
+  .models{display:flex;justify-content:center;gap:22px;flex-wrap:wrap;}
+  .mcard{
+    width:190px;text-align:center;padding:22px 14px 18px;border-radius:16px;border:1.5px solid;background:var(--card);
+    cursor:pointer;font:inherit;color:inherit;transition:box-shadow .15s, transform .15s;
+  }
+  .mcard:hover{box-shadow:0 8px 22px rgba(20,33,61,.10);transform:translateY(-2px);}
+  .mcard.on{box-shadow:0 0 0 3px rgba(20,33,61,.08);}
+  .mcard .ico{width:46px;height:46px;border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:19px;}
+  .mcard b{display:block;font-size:17px;color:var(--ink);}
+  .mcard small{display:block;font-size:12.5px;color:var(--muted);margin-top:3px;}
+  .mcard .n{font-size:13px;font-weight:600;margin-top:10px;display:inline-block;padding:2px 10px;border-radius:999px;}
+  .c-blue{border-color:#C9DBFB;background:#EDF3FE;} .c-blue .ico{background:#8FB4F5;} .c-blue .n{background:#fff;color:#4B7FD6;}
+  .c-violet{border-color:#DACDFA;background:#F4F0FE;} .c-violet .ico{background:#B7A0F3;} .c-violet .n{background:#fff;color:#7E5FD0;}
+  .c-orange{border-color:#F8D9BE;background:#FFF4EA;} .c-orange .ico{background:#F5B681;} .c-orange .n{background:#fff;color:#C06A2B;}
+  .c-green{border-color:#BFE9D6;background:#EBFAF3;} .c-green .ico{background:#86D4B2;} .c-green .n{background:#fff;color:#2E9A72;}
+
+  .foot-note{text-align:center;color:var(--faint);font-size:12.5px;margin:26px 0 0;}
+  .demo{display:inline-block;margin-top:6px;color:#8A6513;background:#FFF7E3;border:1px solid #F2DDA6;border-radius:8px;padding:6px 12px;font-size:12.5px;}
+
+  .panel{margin-top:44px;background:rgba(255,255,255,.85);border:1px solid var(--line);border-radius:18px;padding:22px 24px 10px;box-shadow:0 1px 2px rgba(20,33,61,.04);}
+  .tools{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:6px;}
+  .search{flex:1;min-width:220px;border:1px solid var(--line);border-radius:12px;padding:10px 14px;font:inherit;font-size:14px;background:#fff;color:var(--text);}
+  .search:focus{outline:2px solid #CFE0FF;border-color:var(--blue);}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 13px;font:inherit;font-size:13px;color:var(--muted);cursor:pointer;}
+  .chip:hover{background:var(--bg1);}
+  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+  .group{margin-top:22px;}
+  .group-head{display:flex;align-items:center;gap:10px;padding-bottom:8px;}
+  .gdot{width:10px;height:10px;border-radius:50%;}
+  .group-head h2{font-size:17px;margin:0;font-weight:700;color:var(--ink);}
+  .group-head span.c{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--faint);}
+  .grid{display:grid;grid-template-columns:44px minmax(170px,1.2fr) 112px minmax(250px,1.5fr) minmax(190px,1fr);gap:14px;align-items:center;}
+  .colhead{padding:4px 6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--faint);}
+  .row{padding:11px 6px;border-top:1px solid var(--line);border-radius:0;}
+  .row:hover{background:#F8FAFE;}
+  .avatar{width:38px;height:38px;border-radius:50%;background:#EDF1F9;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--muted);object-fit:cover;}
+  .name{display:flex;align-items:center;gap:8px;min-width:0;}
+  .name a{color:var(--ink);font-weight:600;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .name a:hover{text-decoration:underline;}
+  .name small{display:block;font-size:12px;color:var(--faint);}
+  .st-pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 11px 3px 8px;font-size:12.5px;background:#fff;cursor:pointer;font-family:inherit;color:var(--text);}
+  .st-pill:hover{background:var(--bg1);}
+  .dot{width:8px;height:8px;border-radius:50%;}
+  .dot.actif{background:var(--ok);} .dot.restriction{background:var(--warn);} .dot.desactive{background:var(--danger);}
+  .copy{display:flex;align-items:center;gap:8px;min-width:0;font-size:13.5px;color:var(--muted);}
+  .copy span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cbtn{border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--muted);font-size:11.5px;padding:2px 8px;border-radius:6px;font-family:'IBM Plex Mono',monospace;flex-shrink:0;}
+  .cbtn:hover{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .empty{color:var(--faint);font-style:italic;padding:30px 0;text-align:center;}
+
+  @media(max-width:760px){
+    .colhead{display:none;}
+    .row.grid{grid-template-columns:44px 1fr auto;grid-template-areas:"av name st" ". mail mail" ". phone phone";row-gap:4px;}
+    .row .avatar{grid-area:av;} .row .name{grid-area:name;} .row .st{grid-area:st;} .row .mail{grid-area:mail;} .row .phone{grid-area:phone;}
+    .panel{padding:16px 14px 6px;} .hero{padding-top:30px;} .mcard{width:calc(50% - 11px);min-width:150px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <span class="pill-tag v" id="tagUpdate">Mis à jour</span>
+    <a class="back" href="index.html">← Tableau de bord</a>
+    <span class="pill-tag o" id="tagCount"></span>
+  </div>
+
+  <header class="hero">
+    <h1>Comptes Instagram</h1>
+    <p class="sub">Tous tes comptes, par modèle</p>
+    <div class="rule"></div>
+    <div class="models" id="models"></div>
+    <p class="foot-note">Clique sur un modèle pour filtrer · clique sur un statut pour le changer</p>
+  </header>
+
+  <section class="panel">
+    <div class="tools"><input class="search" id="search" type="search" placeholder="Chercher un profil, un mail, un numéro…"></div>
+    <div class="chips" id="chips"></div>
+    <div id="groups"></div>
+  </section>
+</div>
+<script>
+const ACCOUNTS_KEY = 'dashboard-accounts-v1';
+const STATUS = { actif:'Actif', restriction:'Restriction', desactive:'Désactivé' };
+const ORDER = ['actif','restriction','desactive'];
+const COLORS = ['blue','violet','orange','green'];
+const HEX = { blue:'#8FB4F5', violet:'#B7A0F3', orange:'#F5B681', green:'#86D4B2' };
+const DEMO = [];
+let accounts = [], demo = false, fModel = 'Tous', fStatus = 'Tous', q = '';
+try{ const raw = localStorage.getItem(ACCOUNTS_KEY); accounts = raw ? JSON.parse(raw) : []; }catch(e){ accounts = []; }
+
+const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
+const modelOf = (a) => a.model || 'Sans modèle';
+function save(){ if(demo) return; try{ localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts)); }catch(e){} }
+document.getElementById('tagUpdate').textContent = 'Mis à jour le ' + new Date().toLocaleDateString('fr-FR');
+
+function render(){
+  const names = [...new Set(accounts.map(modelOf))];
+  const colorOf = (m) => COLORS[names.indexOf(m) % COLORS.length];
+  const nActive = accounts.filter(a => a.status === 'actif').length;
+  document.getElementById('tagCount').textContent = accounts.length + ' comptes · ' + nActive + ' actifs';
+  document.getElementById('models').innerHTML = names.map(m => {
+    const list = accounts.filter(a => modelOf(a) === m);
+    const act = list.filter(a => a.status === 'actif').length;
+    const other = list.length - act;
+    return `<button class="mcard c-${colorOf(m)}${fModel === m ? ' on' : ''}" data-m="${esc(m)}">
+      <div class="ico">${esc(m[0].toUpperCase())}</div>
+      <b>${esc(m)}</b>
+      <small>${act} actif${act > 1 ? 's' : ''}${other ? ' · ' + other + ' à surveiller' : ''}</small>
+      <span class="n">${list.length} compte${list.length > 1 ? 's' : ''}</span>
+    </button>`; }).join('');
+  document.getElementById('chips').innerHTML =
+    ['Tous'].concat(names).map(m => '<button class="chip' + (fModel === m ? ' on' : '') + '" data-m="' + esc(m) + '">' + (m === 'Tous' ? 'Tous les modèles' : esc(m)) + '</button>').join('') +
+    '<span style="width:10px"></span>' +
+    ['Tous'].concat(ORDER).map(s => '<button class="chip' + (fStatus === s ? ' on' : '') + '" data-s="' + s + '">' + (s === 'Tous' ? 'Tous les statuts' : STATUS[s]) + '</button>').join('');
+  const term = q.trim().toLowerCase();
+  const list = accounts.filter(a =>
+    (fModel === 'Tous' || modelOf(a) === fModel) &&
+    (fStatus === 'Tous' || a.status === fStatus) &&
+    (!term || [a.name, a.mail, a.phone, a.model, a.notes].join(' ').toLowerCase().includes(term)));
+  const box = document.getElementById('groups');
+  if(!list.length){ box.innerHTML = '<div class="empty">' + (accounts.length ? 'Aucun compte ne correspond.' : 'Aucun compte pour l\'instant. Importe ton Excel depuis le tableau de bord.') + '</div>'; return; }
+  const by = {};
+  list.forEach(a => { (by[modelOf(a)] = by[modelOf(a)] || []).push(a); });
+  box.innerHTML = Object.keys(by).map(m => `
+    <div class="group">
+      <div class="group-head"><span class="gdot" style="background:${HEX[colorOf(m)]}"></span><h2>${esc(m)}</h2><span class="c">${by[m].length} compte${by[m].length > 1 ? 's' : ''}</span></div>
+      <div class="grid colhead"><span></span><span>Profil</span><span>Statut</span><span>Mail</span><span>Téléphone</span></div>
+      ${by[m].map(a => { const handle = a.name.replace(/^@/,''); return `
+        <div class="grid row">
+          ${a.photo ? `<img class="avatar" src="${a.photo}" alt="">` : `<div class="avatar">${esc((handle[0] || '?').toUpperCase())}</div>`}
+          <div class="name"><div style="min-width:0"><a href="https://www.instagram.com/${encodeURIComponent(handle)}/" target="_blank" rel="noopener">@${esc(handle)}</a>${a.notes ? `<small>${esc(a.notes)}</small>` : ''}</div><button class="cbtn" data-copy="${esc(handle)}">copier</button></div>
+          <div class="st"><button class="st-pill" data-id="${esc(a.id)}"><span class="dot ${a.status}"></span>${STATUS[a.status] || a.status}</button></div>
+          <div class="copy mail">${a.mail ? `<span>${esc(a.mail)}</span><button class="cbtn" data-copy="${esc(a.mail)}">copier</button>` : '<span style="color:var(--faint)">—</span>'}</div>
+          <div class="copy phone">${a.phone ? `<span>${esc(a.phone)}</span><button class="cbtn" data-copy="${esc(a.phone)}">copier</button>` : '<span style="color:var(--faint)">—</span>'}</div>
+        </div>`; }).join('')}
+    </div>`).join('');
+}
+document.addEventListener('click', async (e) => {
+  const card = e.target.closest('[data-m]');
+  const t = e.target;
+  if(card){ fModel = (fModel === card.dataset.m && card.classList.contains('mcard')) ? 'Tous' : card.dataset.m; render(); }
+  else if(t.dataset.s){ fStatus = t.dataset.s; render(); }
+  else if(t.closest('.st-pill')){
+    const a = accounts.find(x => x.id === t.closest('.st-pill').dataset.id);
+    a.status = ORDER[(ORDER.indexOf(a.status) + 1) % ORDER.length]; save(); render();
+  } else if(t.dataset.copy){
+    try{ await navigator.clipboard.writeText(t.dataset.copy); const old = t.textContent; t.textContent = 'copié ✓'; setTimeout(() => t.textContent = old, 1200); }catch(err){}
+  }
+});
+document.getElementById('search').addEventListener('input', (e) => { q = e.target.value; render(); });
+render();
+</script>
+</body>
+</html>
