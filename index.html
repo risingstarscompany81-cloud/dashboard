@@ -425,6 +425,14 @@
     .columns{flex-direction:column;gap:0;}
     h1.title{font-size:30px;}
   }
+  .contenu-links{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .contenu-link{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);background:var(--bg);}
+  .contenu-link:hover{background:var(--bg-gray-hover);}
+  .contenu-link:focus-visible{outline:2px solid var(--text);outline-offset:2px;}
+  .contenu-dot{width:9px;height:9px;border-radius:50%;}
+  .contenu-name{font-weight:600;font-size:14px;}
+  .contenu-meta{font-size:11.5px;color:var(--text-gray);}
+  @media (max-width:420px){.contenu-links{grid-template-columns:1fr;}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -475,6 +483,18 @@
     </div>
     </div>
     <div class="col" id="colB">
+    <div class="block" id="block-contenu">
+      <div class="block-head" data-toggle="block-contenu">
+        <span class="toggle-arrow">▾</span><span class="block-emoji">🎞️</span><span class="block-title">Contenu Instagram</span>
+      </div>
+      <div class="block-body">
+        <div class="contenu-links">
+          <a class="contenu-link" href="https://claude.ai/artifact/QzW5Rn7nqmzUR65aoJyVYs" target="_blank" rel="noopener"><span class="contenu-dot" style="background:#c2417a"></span><span class="contenu-name">Luna</span><span class="contenu-meta">6 comptes</span></a>
+          <a class="contenu-link" href="https://claude.ai/artifact/BVwhNAZpFQgNx3Um5ZNKpN" target="_blank" rel="noopener"><span class="contenu-dot" style="background:#1f7a8c"></span><span class="contenu-name">Lucia</span><span class="contenu-meta">2 comptes</span></a>
+          <a class="contenu-link" href="https://claude.ai/artifact/Br6BF1cQMA3CAxNWKoUUPD" target="_blank" rel="noopener"><span class="contenu-dot" style="background:#b7651b"></span><span class="contenu-name">Sofia</span><span class="contenu-meta">2 comptes</span></a>
+        </div>
+      </div>
+    </div>
     <div class="block" id="block-insta">
     <div class="block-head" data-toggle="block-insta">
       <span class="toggle-arrow">▾</span><span class="block-emoji">📸</span><span class="block-title">Comptes Instagram</span>
