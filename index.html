@@ -367,6 +367,13 @@
   .note-modal textarea:focus{background:#fff;border-color:var(--text-faint);}
   .btn-danger{background:#FDECEC;border:none;color:#B42318;padding:8px 14px;border-radius:6px;font:inherit;font-size:13.5px;cursor:pointer;}
   .ws-btn,.ws-close{display:none;}
+  .todo-archive{margin-top:10px;}
+  .todo-archive summary{cursor:pointer;font-size:12.5px;color:var(--text-gray);padding:4px 0;}
+  .arch-item{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:var(--text-gray);}
+  .arch-item .txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:line-through;}
+  .arch-item .adate{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--text-faint);flex-shrink:0;}
+  .arch-item button{border:1px solid var(--border);background:#fff;border-radius:5px;padding:1px 8px;font:inherit;font-size:11.5px;color:var(--text-gray);cursor:pointer;flex-shrink:0;}
+  .arch-item button:hover{background:var(--bg-gray);}
 
   .head-weather{margin:0 0 14px;}
   .head-weather .callout{display:inline-flex;padding:6px 14px;gap:10px;border-radius:99px;}
@@ -475,6 +482,7 @@
         <div class="todo-input-row"><span class="plus">＋</span><input id="todoInput" type="text" placeholder="Ajouter une tâche, une idée…"></div>
         <div class="prio-bar" id="prioBar" role="group" aria-label="Priorité de la prochaine tâche"></div>
         <ul class="todo-list" id="todoList"></ul>
+        <details class="todo-archive" id="todoArchive" style="display:none;"><summary id="todoArchiveSum">Archivées</summary><div id="todoArchiveList"></div></details>
 
         <div class="daily-head"><p class="widget-title">Chaque jour</p><span class="sub-meta" id="dailyProgress"></span></div>
         <div class="todo-input-row"><span class="plus">＋</span><input id="dailyInput" type="text" placeholder="Ex : Poster une story"><input id="dailyTime" class="time-input" type="time" value="12:00" title="Heure"></div>
@@ -790,10 +798,36 @@ function renderPrioBar(){
     currentPrio = b.dataset.p; renderPrioBar(); document.getElementById('todoInput').focus();
   }));
 }
+const ARCHIVE_DAYS = 4;
+function isArchivedTodo(t){
+  if(!t.done) return false;
+  if(!t.doneAt) return true; // anciennes tâches cochées, sans date : archivées tout de suite
+  return Date.now() - Date.parse(t.doneAt) > ARCHIVE_DAYS * 864e5;
+}
+function setTodoDone(t, on){ t.done = on; if(on) t.doneAt = new Date().toISOString(); else delete t.doneAt; }
+function renderTodoArchive(){
+  const box = document.getElementById('todoArchive');
+  const arch = todos.filter(isArchivedTodo).sort((a,b) => (b.doneAt||'').localeCompare(a.doneAt||''));
+  box.style.display = arch.length ? '' : 'none';
+  document.getElementById('todoArchiveSum').textContent = 'Archivées (' + arch.length + ')';
+  const list = document.getElementById('todoArchiveList');
+  list.innerHTML = arch.map(t => '<div class="arch-item" data-id="' + t.id + '"><span class="txt">' + escapeHtml(t.text) + '</span>' +
+    '<span class="adate">' + (t.doneAt ? t.doneAt.slice(0,10).split('-').reverse().join('/') : '') + '</span>' +
+    '<button data-restore="' + t.id + '">Restaurer</button><button data-del="' + t.id + '" title="Supprimer définitivement">✕</button></div>').join('');
+  list.querySelectorAll('[data-restore]').forEach(b => b.addEventListener('click', () => {
+    const t = todos.find(x => x.id === b.dataset.restore); if(!t) return;
+    setTodoDone(t, false); storageSet(TODOS_KEY, todos); renderTodos();
+  }));
+  list.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+    todos = todos.filter(x => x.id !== b.dataset.del); storageSet(TODOS_KEY, todos); renderTodos();
+  }));
+}
 function renderTodos(){
   const list = document.getElementById('todoList');
-  if(todos.length === 0){ list.innerHTML = '<li class="muted-italic">Rien de prévu — balance tout ce qui te passe par la tête.</li>'; return; }
-  list.innerHTML = sortedTodos().map(t => { const pr = prioOf(t); return `
+  renderTodoArchive();
+  const visible = new Set(todos.filter(t => !isArchivedTodo(t)).map(t => t.id));
+  if(visible.size === 0){ list.innerHTML = '<li class="muted-italic">Rien de prévu — balance tout ce qui te passe par la tête.</li>'; return; }
+  list.innerHTML = sortedTodos().filter(t => visible.has(t.id)).map(t => { const pr = prioOf(t); return `
     <li class="todo-item ${t.done ? 'done' : ''}" data-id="${t.id}">
       <input type="checkbox" ${t.done ? 'checked' : ''} data-id="${t.id}" class="todo-check">
       <span class="txt" title="Double-clic pour modifier">${escapeHtml(t.text)}</span>
@@ -802,7 +836,7 @@ function renderTodos(){
       <button class="rm" data-id="${t.id}" title="Supprimer">✕</button>
     </li>`; }).join('');
   list.querySelectorAll('.todo-check').forEach(cb => cb.addEventListener('change', () => {
-    todos.find(x => x.id === cb.dataset.id).done = cb.checked;
+    setTodoDone(todos.find(x => x.id === cb.dataset.id), cb.checked);
     storageSet(TODOS_KEY, todos); renderTodos();
   }));
   list.querySelectorAll('.prio-tag').forEach(btn => btn.addEventListener('click', () => {
@@ -972,7 +1006,7 @@ function renderWelcome(){
     '<label class="w-row"><input type="checkbox" data-wt="' + t.id + '"><span class="prio-tag ' + prioOf(t) + '" style="cursor:default;">' + PRIO_LABEL[prioOf(t)] + '</span><span class="t">' + escapeHtml(t.text) + '</span></label>').join('') : '<div class="w-none">Aucune tâche urgente ou importante.</div>');
   document.querySelectorAll('[data-wt]').forEach(cb => cb.addEventListener('change', () => {
     const t = todos.find(x => x.id === cb.dataset.wt); if(!t) return;
-    t.done = cb.checked; storageSet(TODOS_KEY, todos); renderTodos(); renderWelcome();
+    setTodoDone(t, cb.checked); storageSet(TODOS_KEY, todos); renderTodos(); renderWelcome();
   }));
   const nowHM = nowHHMM(), td = todayStr();
   const morning = daily.filter(t => (t.time || '99:99') < '12:00').sort((a,b) => (a.time||'').localeCompare(b.time||''));
@@ -1617,7 +1651,7 @@ async function renderNotesFolder(){
   let h = null; try{ h = await idbGet('notes-dir'); }catch(e){}
   el.innerHTML = h
     ? '<span>📁 Fichiers .md enregistrés dans « ' + escapeHtml(h.name) + ' »</span><button id="notesPick">Changer</button>'
-    : '<span>📁 Pas encore de dossier : les notes restent dans le tableau de bord.</span><button id="notesPick">Choisir le dossier</button>';
+    : '<span>📁 Pas encore de dossier. Choisis : RISING STARS COMPANY › NOTES</span><button id="notesPick">Choisir le dossier</button>';
   document.getElementById('notesPick').onclick = async () => {
     try{
       const dir = await window.showDirectoryPicker({ id:'notes-dashboard', mode:'readwrite' });
