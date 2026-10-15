@@ -1422,6 +1422,21 @@ async function readSheetImages(arrayBuffer){
     img.src = url;
   });
   const mime = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', bmp:'image/bmp' };
+  // images « placées dans la cellule » (Excel 365) : cellule avec vm -> metadata -> richData -> média
+  const colIdx = (letters) => letters.toUpperCase().split('').reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1;
+  const inCell = { rvOfVm: [], rvRel: [], relMap: {} };
+  try{
+    const md = await readXml('xl/metadata.xml'), rvd = await readXml('xl/richData/rdrichvalue.xml'), rvr = await readXml('xl/richData/richValueRel.xml');
+    if(md && rvd && rvr){
+      const fm = Array.from(md.getElementsByTagNameNS(ns, 'futureMetadata')).find(x => x.getAttribute('name') === 'XLRICHVALUE');
+      const fmI = fm ? Array.from(fm.getElementsByTagNameNS(ns, 'bk')).map(bk => { const r = bk.getElementsByTagNameNS(ns, 'rvb')[0]; return r ? +r.getAttribute('i') : -1; }) : [];
+      const vmeta = md.getElementsByTagNameNS(ns, 'valueMetadata')[0];
+      inCell.rvOfVm = vmeta ? Array.from(vmeta.getElementsByTagNameNS(ns, 'bk')).map(bk => { const rc = bk.getElementsByTagNameNS(ns, 'rc')[0]; return rc ? fmI[+rc.getAttribute('v')] : -1; }) : [];
+      inCell.rvVals = Array.from(rvd.getElementsByTagNameNS(ns, 'rv')).map(rv => { const v = rv.getElementsByTagNameNS(ns, 'v')[0]; return v ? +v.textContent : -1; });
+      inCell.rvRel = Array.from(rvr.getElementsByTagNameNS(ns, 'rel')).map(r => r.getAttributeNS(RNS, 'id'));
+      inCell.relMap = await relsOf('xl/richData/richValueRel.xml');
+    }
+  }catch(err){ console.warn('Images dans les cellules illisibles', err); }
   const wbXml = await readXml('xl/workbook.xml'); if(!wbXml) return result;
   const wbRels = await relsOf('xl/workbook.xml');
   for(const sh of Array.from(wbXml.getElementsByTagNameNS(ns, 'sheet'))){
@@ -1429,12 +1444,23 @@ async function readSheetImages(arrayBuffer){
     if(!sheetPath) continue;
     const sheetRels = await relsOf(sheetPath);
     const sheetXml = await readXml(sheetPath); if(!sheetXml) continue;
-    const drawing = sheetXml.getElementsByTagNameNS(ns, 'drawing')[0]; if(!drawing) continue;
-    const drawingPath = sheetRels[drawing.getAttributeNS(RNS, 'id')]; if(!drawingPath) continue;
-    const dXml = await readXml(drawingPath); if(!dXml) continue;
-    const dRels = await relsOf(drawingPath);
     const list = [];
-    for(const anchor of Array.from(dXml.documentElement.children)){
+    // 1) images dans les cellules
+    for(const c of Array.from(sheetXml.getElementsByTagNameNS(ns, 'c'))){
+      const vm = c.getAttribute('vm'); if(!vm || !inCell.rvVals) continue;
+      const m = /^([A-Za-z]+)(\d+)$/.exec(c.getAttribute('r') || ''); if(!m) continue;
+      const rvI = inCell.rvOfVm[+vm - 1], relI = inCell.rvVals[rvI], rid = inCell.rvRel[relI], imgPath = inCell.relMap[rid];
+      const f = imgPath && zip.file(imgPath); if(!f) continue;
+      const ext = imgPath.split('.').pop().toLowerCase();
+      const photo = await toSquare(new Blob([await f.async('uint8array')], { type: mime[ext] || 'image/jpeg' }));
+      if(photo) list.push({ row: +m[2], col: colIdx(m[1]), photo });
+    }
+    // 2) images posées sur les cellules
+    const drawing = sheetXml.getElementsByTagNameNS(ns, 'drawing')[0];
+    const drawingPath = drawing ? sheetRels[drawing.getAttributeNS(RNS, 'id')] : null;
+    const dXml = drawingPath ? await readXml(drawingPath) : null;
+    const dRels = dXml ? await relsOf(drawingPath) : {};
+    for(const anchor of (dXml ? Array.from(dXml.documentElement.children) : [])){
       const from = anchor.getElementsByTagNameNS(ns, 'from')[0];
       const blip = anchor.getElementsByTagNameNS(ns, 'blip')[0];
       if(!from || !blip) continue;
@@ -1469,6 +1495,7 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
       const norm = (v) => clean(v).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
       const found = [];
       wb.SheetNames.forEach(sheetName => {
+        if(/^ARCHIV/.test(norm(sheetName))) return;   // l'onglet ARCHIVAGE (comptes désactivés) n'est pas un modèle
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, raw:true, defval:'' });
         const rowOffset = XLSX.utils.decode_range(wb.Sheets[sheetName]['!ref']).s.r;
         const reds = redRows[sheetName] || new Set();
@@ -1502,6 +1529,7 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
         return;
       }
       let added = 0, updated = 0, removed = 0, photos = 0;
+      for(let i = accounts.length - 1; i >= 0; i--){ if(accounts[i].model === 'Archivage'){ accounts.splice(i, 1); removed++; } }   // nettoie un ancien import qui avait lu l'onglet ARCHIVAGE
       skippedRed.forEach(n => {
         const i = accounts.findIndex(a => a.name.trim().toLowerCase() === n.toLowerCase());
         if(i >= 0){ accounts.splice(i, 1); removed++; }
