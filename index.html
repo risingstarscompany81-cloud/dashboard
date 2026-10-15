@@ -269,6 +269,26 @@
   .w-open:hover{opacity:.88;}
   .w-copy{border:1px solid var(--border);background:#fff;border-radius:5px;padding:4px 9px;font-size:12px;cursor:pointer;color:var(--text-gray);font-family:inherit;}
   .w-copy:hover{background:var(--bg-gray);}
+  /* --- Checkup du soir --- */
+  .modal.ck-modal{max-width:560px;max-height:90vh;overflow:auto;padding:26px 26px 22px;}
+  .ck-modal h2{margin:0 0 2px;font-size:22px;letter-spacing:-.01em;}
+  .ck-sec{margin:0 0 16px;}
+  .ck-sec h3{margin:0 0 6px;font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--text-gray);display:flex;align-items:center;gap:6px;}
+  .ck-row{display:flex;align-items:flex-start;gap:9px;padding:5px 0;font-size:14px;line-height:1.4;}
+  .ck-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--text);flex-shrink:0;cursor:pointer;margin-top:2px;}
+  .ck-row .t{flex:1;}
+  .ck-row.done .t{color:var(--text-faint);text-decoration:line-through;}
+  .ck-row .x{border:none;background:none;color:var(--text-faint);cursor:pointer;font-size:13px;padding:0 2px;}
+  .ck-row .x:hover{color:var(--danger);}
+  .ck-add{display:flex;gap:6px;margin-top:6px;}
+  .ck-add input{flex:1;font:inherit;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:5px 8px;}
+  .ck-tabs{display:flex;gap:6px;margin:0 0 10px;}
+  .ck-tab{border:1px solid var(--border);background:#fff;border-radius:999px;padding:4px 12px;font-size:12.5px;cursor:pointer;color:var(--text-gray);font-family:inherit;}
+  .ck-tab.on{background:var(--text);color:#fff;border-color:var(--text);}
+  .ck-arch details{border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px;}
+  .ck-arch summary{cursor:pointer;font-weight:500;font-size:14px;}
+  .ck-arch .ck-sec{margin:10px 0 0;}
+  .ck-arch .ck-row{padding:2px 0;font-size:13px;}
   .overlay{position:fixed;inset:0;background:rgba(55,53,47,.25);display:none;align-items:center;justify-content:center;z-index:10;padding:20px;}
   .overlay.open{display:flex;}
   .modal{background:#fff;border:1px solid var(--border);border-radius:10px;padding:24px;width:100%;max-width:350px;box-shadow:0 4px 16px rgba(0,0,0,.1);}
@@ -465,6 +485,7 @@
     <span class="backup-status" id="backupStatus"></span>
     <button class="btn-new btn-small ws-btn" id="btnWs">🗂 Espace de travail</button>
     <button class="btn-new btn-small" id="btnWelcome" title="Ouvrir le point de début de journée">☀ Ma journée</button>
+    <button class="btn-new btn-small" id="btnCheckup" title="Checkup de fin de journée">🌙 Checkup du soir</button>
     <button class="btn-new btn-small" id="btnExport">Exporter mes données</button>
     <button class="btn-new btn-small" id="btnFolder" title="Choisir le dossier où les sauvegardes sont enregistrées">Dossier…</button>
     <button class="btn-new btn-small" id="btnImport">Importer une sauvegarde</button>
@@ -588,16 +609,32 @@
       <button class="ws-close" id="wsClose">✕ Fermer</button>
     </div>
     <div class="block-body" style="padding-left:4px;">
+      <div class="ck-tabs"><button class="ck-tab on" id="wsTabItems">Éléments</button><button class="ck-tab" id="wsTabCheckups">Checkups</button></div>
+      <div class="ck-arch" id="ckArchive" style="display:none"></div>
+      <div id="wsItemsWrap">
       <div class="db-toolbar">
         <input id="search" type="text" placeholder="Rechercher…">
         <button class="btn-new" id="openAdd">＋ Nouveau</button>
       </div>
       <div id="content"></div>
+      </div>
     </div>
   </div>
 </div>
 
 <footer id="footerNote">Chargement…</footer>
+
+<div class="overlay" id="checkupOverlay">
+  <div class="modal ck-modal">
+    <h2>🌙 Checkup du soir</h2>
+    <p class="welcome-date" id="ckDate"></p>
+    <div id="ckBody"></div>
+    <div class="modal-actions" style="justify-content:space-between;">
+      <button class="btn-new" id="ckEnd" title="Range cette journée dans l'Espace de travail et prépare demain">Terminer la journée</button>
+      <button class="btn-primary" id="ckClose">Fermer</button>
+    </div>
+  </div>
+</div>
 
 <div class="overlay" id="welcomeOverlay">
   <div class="modal welcome-modal">
@@ -1046,6 +1083,122 @@ function showWelcomeIfNeeded(){
   const st = loadWelcomeState();
   if(st.date !== todayStr() || !st.seen) openWelcome();
 }
+
+/* ===================== Checkup du soir ===================== */
+const CHECKUP_KEY = 'dashboard-checkup-v1';
+const CHECKUP_ARCH_KEY = 'dashboard-checkup-archive-v1';
+const CK_SECTIONS = [
+  { k:'done', title:'FAIT AUJOURD\'HUI', check:false, ph:'Ajouter un point fait…' },
+  { k:'todo', title:'À FAIRE / À VÉRIFIER', check:true, ph:'Ajouter un point à vérifier…' },
+  { k:'pause', title:'EN PAUSE / À DÉFINIR', check:false, ph:'Ajouter un sujet en pause…' }
+];
+let checkup = { date:'', rev:0, done:[], todo:[], pause:[] };
+let ckArchive = [];
+function ckLoad(){
+  try{ const c = JSON.parse(localStorage.getItem(CHECKUP_KEY) || 'null'); if(c && c.date) checkup = Object.assign({ rev:0, done:[], todo:[], pause:[] }, c); }catch(e){}
+  try{ const a = JSON.parse(localStorage.getItem(CHECKUP_ARCH_KEY) || '[]'); if(Array.isArray(a)) ckArchive = a; }catch(e){}
+}
+function ckSave(){
+  try{ localStorage.setItem(CHECKUP_KEY, JSON.stringify(checkup)); localStorage.setItem(CHECKUP_ARCH_KEY, JSON.stringify(ckArchive)); }catch(e){ console.error('Checkup non enregistré', e); }
+}
+function ckIsEmpty(c){ return !(c.done.length || c.todo.length || c.pause.length); }
+/* range la journée terminée dans l'archive ; les points non cochés et les sujets en pause passent au jour suivant */
+function ckArchiveDay(nextDate){
+  if(!ckIsEmpty(checkup)){
+    ckArchive = ckArchive.filter(a => a.date !== checkup.date);
+    ckArchive.unshift({ date:checkup.date, done:checkup.done, todo:checkup.todo, pause:checkup.pause });
+  }
+  checkup = { date:nextDate, rev:checkup.rev, done:[], todo:checkup.todo.filter(i => !i.done), pause:checkup.pause };
+}
+function ckRollover(){
+  const t = todayStr();
+  if(!checkup.date){ checkup.date = t; return; }
+  if(checkup.date < t) ckArchiveDay(t);
+}
+function ckTexts(arr){ return arr.map(i => i.text.trim().toLowerCase()); }
+/* contenu préparé par Claude (fichier checkup.json du site) : ajouté sans écraser ce que tu as coché ou saisi */
+async function ckFetchIncoming(){
+  try{
+    const r = await fetch('checkup.json?t=' + Date.now(), { cache:'no-store' });
+    if(!r.ok) return;
+    const j = await r.json();
+    if(!j || !j.date || (j.rev || 0) <= (checkup.rev || 0) && j.date <= checkup.date) return;
+    if(j.date > checkup.date) ckArchiveDay(j.date);
+    if(j.date !== checkup.date) return;
+    ['done','todo','pause'].forEach(k => {
+      const have = ckTexts(checkup[k]);
+      (j[k] || []).forEach(t => { if(!have.includes(String(t).trim().toLowerCase())) checkup[k].push({ id:uid(), text:String(t), done:false }); });
+    });
+    checkup.rev = j.rev || 1;
+    ckSave(); renderCheckup(); renderCkArchive();
+  }catch(e){ /* hors ligne : on garde ce qui est déjà enregistré */ }
+}
+function renderCheckup(){
+  document.getElementById('ckDate').textContent = frDay(new Date(checkup.date + 'T12:00:00')).replace(/^./, c => c.toUpperCase());
+  document.getElementById('ckBody').innerHTML = CK_SECTIONS.map(s => `
+    <div class="ck-sec">
+      <h3>${s.title}<span class="count-chip">${checkup[s.k].length}</span></h3>
+      ${checkup[s.k].length ? checkup[s.k].map(i => `
+        <div class="ck-row${i.done ? ' done' : ''}">
+          ${s.check ? `<input type="checkbox" data-ck-tick="${s.k}:${i.id}"${i.done ? ' checked' : ''}>` : ''}
+          <span class="t">${escapeHtml(i.text)}</span>
+          <button class="x" data-ck-del="${s.k}:${i.id}" title="Supprimer">✕</button>
+        </div>`).join('') : '<div class="w-none">Rien pour l\'instant.</div>'}
+      <div class="ck-add"><input type="text" placeholder="${s.ph}" data-ck-new="${s.k}"><button class="w-copy" data-ck-addbtn="${s.k}">Ajouter</button></div>
+    </div>`).join('');
+}
+function ckAdd(k){
+  const inp = document.querySelector('[data-ck-new="' + k + '"]'); const v = inp.value.trim();
+  if(!v) return;
+  checkup[k].push({ id:uid(), text:v, done:false }); ckSave(); renderCheckup();
+  const again = document.querySelector('[data-ck-new="' + k + '"]'); if(again) again.focus();
+}
+function renderCkArchive(){
+  const box = document.getElementById('ckArchive');
+  document.getElementById('wsTabCheckups').textContent = 'Checkups' + (ckArchive.length ? ' (' + ckArchive.length + ')' : '');
+  if(!ckArchive.length){ box.innerHTML = '<div class="ws-empty-note">Aucune journée archivée pour l\'instant. Quand tu cliques sur « Terminer la journée » (ou le lendemain), elle se range ici.</div>'; return; }
+  box.innerHTML = ckArchive.map(a => `
+    <details>
+      <summary>${escapeHtml(frDay(new Date(a.date + 'T12:00:00')).replace(/^./, c => c.toUpperCase()))} <span class="count-chip">${a.done.length} fait(s)</span></summary>
+      ${CK_SECTIONS.map(s => (a[s.k] || []).length ? `
+        <div class="ck-sec"><h3>${s.title}</h3>
+        ${a[s.k].map(i => `<div class="ck-row${i.done ? ' done' : ''}"><span>${s.check ? (i.done ? '☑' : '☐') : '•'}</span><span class="t">${escapeHtml(i.text)}</span></div>`).join('')}</div>` : '').join('')}
+    </details>`).join('');
+}
+function openCheckup(){ ckRollover(); renderCheckup(); document.getElementById('checkupOverlay').classList.add('open'); }
+function closeCheckup(){ document.getElementById('checkupOverlay').classList.remove('open'); }
+document.getElementById('btnCheckup').addEventListener('click', openCheckup);
+document.getElementById('ckClose').addEventListener('click', closeCheckup);
+document.getElementById('checkupOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'checkupOverlay'){ closeCheckup(); return; }
+  const tick = e.target.dataset && e.target.dataset.ckTick, del = e.target.dataset && e.target.dataset.ckDel, addb = e.target.dataset && e.target.dataset.ckAddbtn;
+  if(del){ const [k, id] = del.split(':'); checkup[k] = checkup[k].filter(i => i.id !== id); ckSave(); renderCheckup(); }
+  if(addb) ckAdd(addb);
+});
+document.getElementById('checkupOverlay').addEventListener('change', (e) => {
+  const tick = e.target.dataset && e.target.dataset.ckTick; if(!tick) return;
+  const [k, id] = tick.split(':'); const it = checkup[k].find(i => i.id === id); if(it){ it.done = e.target.checked; ckSave(); renderCheckup(); }
+});
+document.getElementById('checkupOverlay').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter' && e.target.dataset && e.target.dataset.ckNew){ e.preventDefault(); ckAdd(e.target.dataset.ckNew); }
+});
+document.getElementById('ckEnd').addEventListener('click', () => {
+  const d = new Date(); d.setDate(d.getDate() + 1);
+  ckArchiveDay(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'));
+  ckSave(); renderCheckup(); renderCkArchive(); closeCheckup();
+  document.body.classList.add('ws-open'); showWsTab('checkups');
+});
+function showWsTab(which){
+  const ck = which === 'checkups';
+  document.getElementById('wsItemsWrap').style.display = ck ? 'none' : '';
+  document.getElementById('ckArchive').style.display = ck ? '' : 'none';
+  document.getElementById('wsTabItems').classList.toggle('on', !ck);
+  document.getElementById('wsTabCheckups').classList.toggle('on', ck);
+  if(ck) renderCkArchive();
+}
+document.getElementById('wsTabItems').addEventListener('click', () => showWsTab('items'));
+document.getElementById('wsTabCheckups').addEventListener('click', () => showWsTab('checkups'));
+function checkupInit(){ ckLoad(); ckRollover(); ckSave(); renderCkArchive(); ckFetchIncoming(); }
 
 /* ===================== Suivi des comptes Insta ===================== */
 const ACCOUNT_STATUSES = ['actif', 'restriction', 'desactive'];
@@ -2231,7 +2384,7 @@ function newToolItems(){
   } else { notes = loadedNotes2; }
   renderNotes(); renderNotesFolder();
 
-  render(); renderTodos(); renderDaily(); renderTrame(); renderAccounts(); renderSubs(); initWeather(); initAtomicCheck(); showWelcomeIfNeeded();
+  render(); renderTodos(); renderDaily(); renderTrame(); renderAccounts(); renderSubs(); initWeather(); initAtomicCheck(); checkupInit(); showWelcomeIfNeeded();
 
   const loadedFinances = await storageGet(FINANCES_KEY);
   renderFinances(loadedFinances);

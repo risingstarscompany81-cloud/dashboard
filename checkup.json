@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-15",
+  "rev": 1,
+  "done": [
+    "Numéro des comptes Instagram affiché devant le nom (1luna_kmz…) : en ligne",
+    "Photos de profil : correction de l'enregistrement + ajout depuis la page Comptes : en ligne",
+    "Contenu Sofia : 24 dossiers rangés, 108 photos HEIC→JPG, 88 vidéos MOV→MP4 (0 erreur)",
+    "Albums créés dans Telestars"
+  ],
+  "todo": [
+    "Vérifier l'import Telestars du dossier SPA, puis les 23 autres un par un",
+    "Ré-importer COMPTES IG PROXY.xlsx une fois et remettre les photos de profil",
+    "Confirmer que le dossier NOTES enregistre bien les fichiers .md",
+    "Contrôle de 14h15 : ventes des 3 modèles (seuil 130 $) + problèmes de médias",
+    "Abonnement Telegram de Sofia (5,49 €) le 18",
+    "Pubs : BM sauté, compte pub de Lucia désactivé, pub Mexique de Luna encore active",
+    "Lucia : retenter le transfert du bot quand le délai de ~21 jours est passé"
+  ],
+  "pause": [
+    "Suivi des comptes Instagram (alertes, abonnés, stories)",
+    "Objectifs / stratégie (prévisionnel) : à décrire"
+  ]
+}
