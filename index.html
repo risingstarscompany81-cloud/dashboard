@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Centre de contrôle</title>
 <style>
+.acc-num{color:var(--accent,#3b6fd8);margin-right:1px;}
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
   :root{
@@ -634,6 +635,7 @@
   <div class="modal">
     <h2 id="accModalTitle">Ajouter un compte</h2>
     <div class="field"><label for="acc-name">Nom du compte</label><input id="acc-name" type="text" placeholder="Ex : @moncompte"></div>
+    <div class="field"><label for="acc-num">N° (ton numéro du compte)</label><input id="acc-num" type="text" inputmode="numeric" placeholder="Ex : 1"></div>
     <div class="field"><label for="acc-model">Modèle</label><input id="acc-model" type="text" placeholder="Ex : Luna"></div>
     <div class="field"><label for="acc-mail">Adresse mail</label><input id="acc-mail" type="text"></div>
     <div class="field"><label for="acc-phone">Téléphone</label><input id="acc-phone" type="text"></div>
@@ -1079,7 +1081,7 @@ function renderAccounts(){
     <li class="account-card">
       ${avatar}
       <div class="account-info">
-        <div class="account-name">${escapeHtml(a.name)}</div>
+        <div class="account-name">${a.num ? `<b class="acc-num">${escapeHtml(String(a.num))}</b>` : ''}${escapeHtml(a.name)}</div>
         ${a.model ? `<div class="account-notes">${escapeHtml(a.model)}</div>` : ''}
         ${(a.mail || a.phone) ? `<div class="account-notes">${escapeHtml([a.mail, a.phone].filter(Boolean).join(' · '))}</div>` : ''}
         ${a.notes ? `<div class="account-notes">${escapeHtml(a.notes)}</div>` : ''}
@@ -1111,6 +1113,7 @@ function openAddAccount(){
   document.getElementById('acc-name').value = '';
   document.getElementById('acc-notes').value = '';
   document.getElementById('acc-model').value = '';
+  document.getElementById('acc-num').value = '';
   document.getElementById('acc-mail').value = '';
   document.getElementById('acc-phone').value = '';
   document.getElementById('acc-photo').value = '';
@@ -1124,6 +1127,7 @@ function openEditAccount(id){
   document.getElementById('acc-name').value = acc.name;
   document.getElementById('acc-notes').value = acc.notes || '';
   document.getElementById('acc-model').value = acc.model || '';
+  document.getElementById('acc-num').value = acc.num || '';
   document.getElementById('acc-mail').value = acc.mail || '';
   document.getElementById('acc-phone').value = acc.phone || '';
   document.getElementById('acc-photo').value = '';
@@ -1151,15 +1155,16 @@ document.getElementById('accSaveBtn').addEventListener('click', async () => {
   const notes = document.getElementById('acc-notes').value.trim();
   if(!name){ document.getElementById('acc-name').focus(); return; }
   const model = document.getElementById('acc-model').value.trim();
+  const num = document.getElementById('acc-num').value.replace(/\D/g,'');
   const mail = document.getElementById('acc-mail').value.trim();
   const phone = document.getElementById('acc-phone').value.trim();
   const newPhoto = await readPhotoAsDataUrl(document.getElementById('acc-photo'));
   if(editingAccountId){
     const acc = accounts.find(a => a.id === editingAccountId);
-    acc.name = name; acc.notes = notes; acc.model = model; acc.mail = mail; acc.phone = phone;
+    acc.name = name; acc.notes = notes; acc.num = num; acc.model = model; acc.mail = mail; acc.phone = phone;
     if(newPhoto) acc.photo = newPhoto;
   } else {
-    accounts.push({ id: uid(), name, notes, model, mail, phone, photo: newPhoto, status: 'actif' });
+    accounts.push({ id: uid(), name, notes, num, model, mail, phone, photo: newPhoto, status: 'actif' });
   }
   storageSet(ACCOUNTS_KEY, accounts);
   closeAccModal();
@@ -1247,7 +1252,7 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
         if(hIdx < 0) return;
         const head = rows[hIdx].map(norm);
         const col = (label) => head.indexOf(label);
-        const cProfile = col('NOM DU PROFIL IG'), cMail = col('ADRESSE MAIL'), cPhone = col('NUMERO DE TELEPHONE');
+        const cProxy = col('NOM DU PROXY'), cProfile = col('NOM DU PROFIL IG'), cMail = col('ADRESSE MAIL'), cPhone = col('NUMERO DE TELEPHONE');
         // nom du modèle : la ligne "LUNA (CATA)" juste au-dessus de l'en-tête, sinon le nom de l'onglet
         let model = clean(sheetName);
         for(let r = hIdx - 1; r >= 0; r--){
@@ -1260,7 +1265,8 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
           const profile = clean(rows[r][cProfile]);
           if(!profile) continue;
           if(reds.has(r + rowOffset + 1)){ skippedRed.push(profile); continue; }
-          found.push({ name: profile, model: modelLabel, mail: clean(rows[r][cMail]), phone: clean(rows[r][cPhone]) });
+          const mNum = cProxy >= 0 ? clean(rows[r][cProxy]).match(/^(\d+)/) : null;
+          found.push({ name: profile, num: mNum ? mNum[1] : '', model: modelLabel, mail: clean(rows[r][cMail]), phone: clean(rows[r][cPhone]) });
         }
       });
       if(!found.length){
@@ -1274,8 +1280,8 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
       });
       found.forEach(f => {
         const ex = accounts.find(a => a.name.trim().toLowerCase() === f.name.toLowerCase());
-        if(ex){ ex.model = f.model; ex.mail = f.mail; ex.phone = f.phone; updated++; }
-        else { accounts.push({ id: uid(), name: f.name, notes: '', model: f.model, mail: f.mail, phone: f.phone, photo: null, status: 'actif' }); added++; }
+        if(ex){ ex.num = f.num || ex.num || ''; ex.model = f.model; ex.mail = f.mail; ex.phone = f.phone; updated++; }
+        else { accounts.push({ id: uid(), name: f.name, num: f.num, notes: '', model: f.model, mail: f.mail, phone: f.phone, photo: null, status: 'actif' }); added++; }
       });
       await storageSet(ACCOUNTS_KEY, accounts);
       renderAccounts();
