@@ -1389,6 +1389,67 @@ async function readRedRows(arrayBuffer){
   return result;
 }
 
+
+/* --- lecture des photos de profil posées dans l'Excel (images ancrées sur une cellule) --- */
+async function readSheetImages(arrayBuffer){
+  // renvoie { nomOnglet: [ { row (n° de ligne Excel, à partir de 1), col (0 = colonne A), photo (data URL 160 px) } ] }
+  const result = {};
+  if(typeof JSZip === 'undefined') return result;
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  const parse = (txt) => new DOMParser().parseFromString(txt, 'application/xml');
+  const ns = '*', RNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const readXml = async (path) => { const f = zip.file(path); return f ? parse(await f.async('string')) : null; };
+  const resolve = (base, target) => {                    // chemin relatif -> chemin absolu dans le zip
+    if(target.startsWith('/')) return target.slice(1);
+    const parts = base.split('/'); parts.pop();
+    target.split('/').forEach(p => { if(p === '..') parts.pop(); else if(p !== '.') parts.push(p); });
+    return parts.join('/');
+  };
+  const relsOf = async (path) => {                       // { Id: chemin absolu }
+    const dir = path.split('/'); const file = dir.pop();
+    const x = await readXml(dir.join('/') + '/_rels/' + file + '.rels'); const m = {};
+    if(x) Array.from(x.getElementsByTagNameNS(ns, 'Relationship')).forEach(r => { m[r.getAttribute('Id')] = resolve(path, r.getAttribute('Target')); });
+    return m;
+  };
+  const toSquare = (blob) => new Promise((ok) => {
+    const url = URL.createObjectURL(blob), img = new Image();
+    img.onload = () => {
+      const side = Math.min(img.width, img.height), c = document.createElement('canvas'); c.width = c.height = Math.min(160, side);
+      c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); ok(null); };
+    img.src = url;
+  });
+  const mime = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', bmp:'image/bmp' };
+  const wbXml = await readXml('xl/workbook.xml'); if(!wbXml) return result;
+  const wbRels = await relsOf('xl/workbook.xml');
+  for(const sh of Array.from(wbXml.getElementsByTagNameNS(ns, 'sheet'))){
+    const name = sh.getAttribute('name'), sheetPath = wbRels[sh.getAttributeNS(RNS, 'id')];
+    if(!sheetPath) continue;
+    const sheetRels = await relsOf(sheetPath);
+    const sheetXml = await readXml(sheetPath); if(!sheetXml) continue;
+    const drawing = sheetXml.getElementsByTagNameNS(ns, 'drawing')[0]; if(!drawing) continue;
+    const drawingPath = sheetRels[drawing.getAttributeNS(RNS, 'id')]; if(!drawingPath) continue;
+    const dXml = await readXml(drawingPath); if(!dXml) continue;
+    const dRels = await relsOf(drawingPath);
+    const list = [];
+    for(const anchor of Array.from(dXml.documentElement.children)){
+      const from = anchor.getElementsByTagNameNS(ns, 'from')[0];
+      const blip = anchor.getElementsByTagNameNS(ns, 'blip')[0];
+      if(!from || !blip) continue;
+      const imgPath = dRels[blip.getAttributeNS(RNS, 'embed')]; const f = imgPath && zip.file(imgPath); if(!f) continue;
+      const row0 = +from.getElementsByTagNameNS(ns, 'row')[0].textContent, col0 = +from.getElementsByTagNameNS(ns, 'col')[0].textContent;
+      const ext = imgPath.split('.').pop().toLowerCase();
+      const raw = await f.async('uint8array');
+      const photo = await toSquare(new Blob([raw], { type: mime[ext] || 'image/jpeg' }));
+      if(photo) list.push({ row: row0 + 1, col: col0, photo });
+    }
+    result[name] = list;
+  }
+  return result;
+}
+
 /* --- import des comptes depuis COMPTES IG PROXY.xlsx (sans les mots de passe) --- */
 document.getElementById('importAccounts').addEventListener('click', () => document.getElementById('accFileInput').click());
 document.getElementById('accFileInput').addEventListener('change', (e) => {
@@ -1402,6 +1463,8 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
       let redRows = {};
       try{ redRows = await readRedRows(evt.target.result); }catch(err){ console.warn('Lecture des couleurs impossible', err); }
       let skippedRed = [];
+      let sheetImages = {};
+      try{ sheetImages = await readSheetImages(evt.target.result); }catch(err){ console.warn('Lecture des photos impossible', err); }
       const clean = (v) => (v === undefined || v === null) ? '' : String(v).trim();
       const norm = (v) => clean(v).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
       const found = [];
@@ -1414,6 +1477,9 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
         const head = rows[hIdx].map(norm);
         const col = (label) => head.indexOf(label);
         const cProxy = col('NOM DU PROXY'), cProfile = col('NOM DU PROFIL IG'), cMail = col('ADRESSE MAIL'), cPhone = col('NUMERO DE TELEPHONE');
+        const cStatus = col('STATUT'), cPhoto = col('PHOTO DE PROFIL');
+        const imgs = sheetImages[sheetName] || [];
+        const photoAt = (xlRow) => { const hit = imgs.find(i => i.row === xlRow && (cPhoto < 0 || i.col === cPhoto)); return hit ? hit.photo : null; };
         // nom du modèle : la ligne "LUNA (CATA)" juste au-dessus de l'en-tête, sinon le nom de l'onglet
         let model = clean(sheetName);
         for(let r = hIdx - 1; r >= 0; r--){
@@ -1425,29 +1491,30 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
         for(let r = hIdx + 1; r < rows.length; r++){
           const profile = clean(rows[r][cProfile]);
           if(!profile) continue;
-          if(reds.has(r + rowOffset + 1)){ skippedRed.push(profile); continue; }
+          const isOff = cStatus >= 0 && /^DESACTIV/.test(norm(rows[r][cStatus]));   // colonne STATUT = « Désactivé »
+          if(isOff || reds.has(r + rowOffset + 1)){ skippedRed.push(profile); continue; }
           const mNum = cProxy >= 0 ? clean(rows[r][cProxy]).match(/^(\d+)/) : null;
-          found.push({ name: profile, num: mNum ? mNum[1] : '', model: modelLabel, mail: clean(rows[r][cMail]), phone: clean(rows[r][cPhone]) });
+          found.push({ name: profile, num: mNum ? mNum[1] : '', model: modelLabel, mail: clean(rows[r][cMail]), phone: clean(rows[r][cPhone]), photo: photoAt(r + rowOffset + 1) });
         }
       });
       if(!found.length){
         msg.textContent = "⚠ Aucun compte trouvé : il me faut une colonne « NOM DU PROFIL IG » dans le fichier.";
         return;
       }
-      let added = 0, updated = 0, removed = 0;
+      let added = 0, updated = 0, removed = 0, photos = 0;
       skippedRed.forEach(n => {
         const i = accounts.findIndex(a => a.name.trim().toLowerCase() === n.toLowerCase());
         if(i >= 0){ accounts.splice(i, 1); removed++; }
       });
       found.forEach(f => {
         const ex = accounts.find(a => a.name.trim().toLowerCase() === f.name.toLowerCase());
-        if(ex){ ex.num = f.num || ex.num || ''; ex.model = f.model; ex.mail = f.mail; ex.phone = f.phone; updated++; }
-        else { accounts.push({ id: uid(), name: f.name, num: f.num, notes: '', model: f.model, mail: f.mail, phone: f.phone, photo: null, status: 'actif' }); added++; }
+        if(ex){ ex.num = f.num || ex.num || ''; ex.model = f.model; ex.mail = f.mail; ex.phone = f.phone; if(f.photo){ ex.photo = f.photo; photos++; } updated++; }
+        else { accounts.push({ id: uid(), name: f.name, num: f.num, notes: '', model: f.model, mail: f.mail, phone: f.phone, photo: f.photo || null, status: 'actif' }); added++; if(f.photo) photos++; }
       });
       await storageSet(ACCOUNTS_KEY, accounts);
       renderAccounts();
-      msg.textContent = '✓ ' + added + ' compte(s) ajouté(s), ' + updated + ' mis à jour. Statuts et photos conservés.' +
-        (skippedRed.length ? ' · Ignorés (lignes en rouge) : ' + skippedRed.join(', ') + (removed ? ' — ' + removed + ' retiré(s) du tableau de bord.' : '.') : '');
+      msg.textContent = '✓ ' + added + ' compte(s) ajouté(s), ' + updated + ' mis à jour' + (photos ? ', ' + photos + ' photo(s) importée(s)' : '') + '. Statuts conservés.' +
+        (skippedRed.length ? ' · Ignorés (désactivés) : ' + skippedRed.join(', ') + (removed ? ' — ' + removed + ' retiré(s) du tableau de bord.' : '.') : '');
     }catch(err){
       console.error(err);
       msg.textContent = "⚠ Impossible de lire ce fichier — choisis COMPTES IG PROXY.xlsx.";
