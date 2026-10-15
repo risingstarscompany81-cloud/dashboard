@@ -77,6 +77,7 @@
   .name a{color:var(--ink);font-weight:600;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .name a:hover{text-decoration:underline;}
   .name .num{color:#3b6fd8;}
+  .avatar.pick{cursor:pointer;}
   .name small{display:block;font-size:12px;color:var(--faint);}
   .st-pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 11px 3px 8px;font-size:12.5px;background:#fff;cursor:pointer;font-family:inherit;color:var(--text);}
   .st-pill:hover{background:var(--bg1);}
@@ -130,7 +131,7 @@ try{ const raw = localStorage.getItem(ACCOUNTS_KEY); accounts = raw ? JSON.parse
 
 const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
 const modelOf = (a) => a.model || 'Sans modèle';
-function save(){ if(demo) return; try{ localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts)); }catch(e){} }
+function save(){ if(demo) return true; try{ localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts)); return true; }catch(e){ return false; } }
 document.getElementById('tagUpdate').textContent = 'Mis à jour le ' + new Date().toLocaleDateString('fr-FR');
 
 function render(){
@@ -168,7 +169,7 @@ function render(){
       <div class="grid colhead"><span></span><span>Profil</span><span>Statut</span><span>Mail</span><span>Téléphone</span></div>
       ${by[m].map(a => { const handle = a.name.replace(/^@/,''); return `
         <div class="grid row">
-          ${a.photo ? `<img class="avatar" src="${a.photo}" alt="">` : `<div class="avatar">${esc((handle[0] || '?').toUpperCase())}</div>`}
+          ${a.photo ? `<img class="avatar pick" data-pick="${esc(a.id)}" title="Changer la photo" src="${a.photo}" alt="">` : `<div class="avatar pick" data-pick="${esc(a.id)}" title="Ajouter une photo">${esc((handle[0] || '?').toUpperCase())}</div>`}
           <div class="name"><div style="min-width:0"><a href="https://www.instagram.com/${encodeURIComponent(handle)}/" target="_blank" rel="noopener">${a.num ? `<b class="num">${esc(a.num)}</b>` : '@'}${esc(handle)}</a>${a.notes ? `<small>${esc(a.notes)}</small>` : ''}</div><button class="cbtn" data-copy="${esc(handle)}">copier</button></div>
           <div class="st"><button class="st-pill" data-id="${esc(a.id)}"><span class="dot ${a.status}"></span>${STATUS[a.status] || a.status}</button></div>
           <div class="copy mail">${a.mail ? `<span>${esc(a.mail)}</span><button class="cbtn" data-copy="${esc(a.mail)}">copier</button>` : '<span style="color:var(--faint)">—</span>'}</div>
@@ -176,7 +177,24 @@ function render(){
         </div>`; }).join('')}
     </div>`).join('');
 }
+let pickId = null;
+const pf = document.createElement('input'); pf.type = 'file'; pf.accept = 'image/*'; pf.style.display = 'none'; document.body.appendChild(pf);
+pf.addEventListener('change', () => {
+  const file = pf.files[0], a = accounts.find(x => x.id === pickId); pf.value = '';
+  if(!file || !a) return;
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = () => {
+    const side = Math.min(img.width, img.height), c = document.createElement('canvas'); c.width = c.height = Math.min(160, side);
+    c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    a.photo = c.toDataURL('image/jpeg', 0.82);
+    if(!save()) alert('Photo non enregistrée : la mémoire du navigateur est pleine.');
+    render();
+  };
+  img.src = url;
+});
 document.addEventListener('click', async (e) => {
+  if(e.target.dataset && e.target.dataset.pick){ pickId = e.target.dataset.pick; pf.click(); return; }
   const card = e.target.closest('[data-m]');
   const t = e.target;
   if(card){ fModel = (fModel === card.dataset.m && card.classList.contains('mcard')) ? 'Tous' : card.dataset.m; render(); }

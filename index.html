@@ -1140,10 +1140,18 @@ function readPhotoAsDataUrl(fileInput){
   return new Promise((resolve) => {
     const file = fileInput.files && fileInput.files[0];
     if(!file){ resolve(null); return; }
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
+    /* on réduit la photo (160 px, JPEG) pour qu'elle tienne dans la mémoire du navigateur */
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const side = Math.min(img.width, img.height), max = 160;
+      const c = document.createElement('canvas'); c.width = c.height = Math.min(max, side);
+      c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
   });
 }
 
