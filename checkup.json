@@ -1,23 +1,30 @@
 {
-  "date": "2026-10-15",
-  "rev": 1,
+  "date": "2026-10-19",
+  "rev": 2,
   "done": [
-    "Numéro des comptes Instagram affiché devant le nom (1luna_kmz…) : en ligne",
-    "Photos de profil : correction de l'enregistrement + ajout depuis la page Comptes : en ligne",
-    "Contenu Sofia : 24 dossiers rangés, 108 photos HEIC→JPG, 88 vidéos MOV→MP4 (0 erreur)",
-    "Albums créés dans Telestars"
+    "Contrôle de 14h15 fait : 0★ à 14h15 (0/16 offres, 18 nouvelles conv.), hier 794★ ≈ 10,3 $ → aucun palier",
+    "Vente de nuit : Javi (Sofia) 794★ à 1h50 ; portefeuille 47,64 $",
+    "Bots Luna, Sofia, Lucia connectés, IA activée, qualité d'envoi 100 %",
+    "Médias : aucun problème nouveau (4 vocaux connus non utilisés), aucune étape sans média ni bloquée",
+    "Persona Luna vérifiée (texte Rapide, négociation hybride) : OK",
+    "Notes IA créées pour Javi (Sofia) et Gérald Beaudza (Luna), complétées pour Angel et Javi (Luna)",
+    "Pubs Meta décrites : Espagne, ~10 $, un compte IG dédié par modèle ; Luna : compte IG France @lunaaxx_sp lancé"
   ],
   "todo": [
+    "Sofia/Javi : le texte de l'offre annonçait 794★ mais le prix affiché était 1323★ — vérifier le script",
+    "Reprise manuelle (scripts épuisés) : Luna 7 (dont Carlos Álvarez, acheteur), Sofia 2, Lucia 10",
+    "Lucia : aucune vente ni activité depuis le 11/10 — voir pourquoi",
     "Vérifier l'import Telestars du dossier SPA, puis les 23 autres un par un",
     "Ré-importer COMPTES IG PROXY.xlsx une fois et remettre les photos de profil",
     "Confirmer que le dossier NOTES enregistre bien les fichiers .md",
-    "Contrôle de 14h15 : ventes des 3 modèles (seuil 130 $) + problèmes de médias",
-    "Abonnement Telegram de Sofia (5,49 €) le 18",
-    "Pubs : BM sauté, compte pub de Lucia désactivé, pub Mexique de Luna encore active",
-    "Lucia : retenter le transfert du bot quand le délai de ~21 jours est passé"
+    "Abonnement Telegram de Sofia (5,49 €) du 18 : saisie faite ?",
+    "Pubs : BM sauté, compte pub de Lucia désactivé, pub Mexique de Luna encore active — à stabiliser",
+    "Lucia : retenter le transfert du bot quand le délai de ~21 jours est passé",
+    "Demain 14h15 : contrôle des ventes (seuil 130 $) + médias"
   ],
   "pause": [
     "Suivi des comptes Instagram (alertes, abonnés, stories)",
-    "Objectifs / stratégie (prévisionnel) : à décrire"
+    "Objectifs / stratégie (prévisionnel) : à décrire",
+    "Abonnement payant Telestars : forfait gratuit pour l'instant"
   ]
 }
