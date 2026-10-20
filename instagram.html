@@ -123,6 +123,15 @@
   .ib{border:0;background:none;color:var(--faint);cursor:pointer;font-size:14px;padding:2px 4px;}
   .ib:hover{color:var(--ink);}
 
+  .arow{padding:10px 0;border-top:1px solid var(--line);}
+  .arow .top{display:flex;align-items:center;gap:8px;}
+  .arow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;}
+  .arow .nm b{color:var(--brown);margin-right:4px;}
+  .cp{display:flex;align-items:center;gap:8px;margin-top:5px;font-size:12.5px;color:var(--muted);}
+  .cp i{font-style:normal;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);width:44px;flex-shrink:0;}
+  .cp span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cb{border:1px solid var(--line);background:#fff;color:var(--muted);font:inherit;font-size:11px;padding:2px 9px;border-radius:999px;cursor:pointer;flex-shrink:0;}
+  .cb:hover{background:var(--ink);border-color:var(--ink);color:#F4ECE0;}
   /* list items */
   .item{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line);}
   .item:first-child{border-top:0;}
@@ -203,7 +212,7 @@
   <!-- COMPTES -->
   <section class="sec" id="s-comptes">
     <h2>Gestion des comptes</h2>
-    <p class="lead">Ajoute, importe et gère tes comptes ci-dessous, puis retrouve la vue par modèle. Touche un statut pour le changer.</p>
+    <p class="lead">Ajoute, importe et gère tes comptes ci-dessous, puis retrouve la vue par modèle. Touche « copier » pour récupérer un nom, un mail ou un mot de passe ; touche un statut pour le changer.</p>
     <div class="card">
       <h2 style="font-size:22px">Suivi des comptes</h2>
       <div class="tools" style="justify-content:flex-start;margin:10px 0 0">
@@ -291,6 +300,8 @@
   <label for="acc-model">Modèle</label><input id="acc-model" type="text" placeholder="Ex : Luna">
   <label for="acc-mail">Adresse mail</label><input id="acc-mail" type="text">
   <label for="acc-phone">Téléphone</label><input id="acc-phone" type="text">
+  <label for="acc-pass">Mot de passe du compte</label><input id="acc-pass" type="text" autocomplete="off">
+  <label for="acc-mailpass">Mot de passe du mail</label><input id="acc-mailpass" type="text" autocomplete="off">
   <label for="acc-photo">Photo de profil</label><input id="acc-photo" type="file" accept="image/*">
   <label for="acc-notes">Notes</label><input id="acc-notes" type="text" placeholder="Infos, remarques…">
   <div class="mfoot" style="justify-content:flex-end"><button class="btn sm ghost" id="accCancelBtn">Annuler</button><button class="btn sm" id="accSaveBtn">Enregistrer</button></div>
@@ -307,7 +318,7 @@ var MODEL_LINK={Luna:'luna/index.html',Lucia:'lucia/index.html',Sofia:'sofia/ind
 
 function load(k,d){try{var r=localStorage.getItem(k);return r?JSON.parse(r):d;}catch(e){return d;}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){toast('Stockage plein : retire des images pour continuer');return false;}}
-function esc(s){var d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML;}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function $(id){return document.getElementById(id);}
 function toast(m){var t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(function(){t.style.display='none';},2600);}
@@ -460,11 +471,20 @@ function renderAcc(){
     var n={actif:0,restriction:0,desactive:0};l.forEach(function(a){if(n[a.status]!=null)n[a.status]++;});
     return '<div class="card"><div class="mhead"><b>'+esc(m)+'</b><span class="counts">'+n.actif+' actif'+(n.actif>1?'s':'')+' · '+n.restriction+' restr. · '+n.desactive+' désact.</span></div>'+
       (l.length?l.map(function(a){var s=STATUS[a.status]?a.status:'actif';
-        return '<div class="acc"><span class="nm">'+esc(a.name||'(sans nom)')+'</span><button class="st" data-id="'+esc(a.id)+'"><span class="dot '+s+'"></span>'+STATUS[s]+'</button></div>';}).join(''):'<div class="empty">Aucun compte</div>')+
+        var nm=String(a.name||'').replace(/^@/,'');
+        function cpy(lab,val,masked){return val?'<div class="cp"><i>'+lab+'</i><span>'+(masked?'••••••••':esc(val))+'</span><button class="cb" data-copy="'+esc(val)+'">copier</button></div>':'';}
+        return '<div class="arow"><div class="top"><span class="nm">'+(a.num?'<b>'+esc(String(a.num))+'</b>':'')+esc(a.name||'(sans nom)')+'</span><button class="cb" data-copy="'+esc(nm)+'">copier</button><button class="st" data-id="'+esc(a.id)+'"><span class="dot '+s+'"></span>'+STATUS[s]+'</button></div>'+
+          cpy('Mail',a.mail,false)+cpy('Mdp',a.pass,true)+cpy('Mdp mail',a.mailpass,true)+'</div>';}).join(''):'<div class="empty">Aucun compte</div>')+
     '</div>';
   }).join('');
 }
+function copyText(txt,btn){
+  function ok(){var o=btn.textContent;btn.textContent='copié ✓';setTimeout(function(){btn.textContent=o;},1200);}
+  function fb(){try{var t=document.createElement('textarea');t.value=txt;t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.focus();t.select();document.execCommand('copy');document.body.removeChild(t);ok();}catch(x){toast('Copie impossible');}}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(ok,fb);}else{fb();}
+}
 $('accGrid').addEventListener('click',function(e){
+  var cb=e.target.closest('.cb');if(cb){copyText(cb.getAttribute('data-copy'),cb);return;}
   var b=e.target.closest('.st');if(!b)return;var id=b.getAttribute('data-id');
   accounts.forEach(function(a){if(String(a.id)===id){var i=ORDER.indexOf(a.status);a.status=ORDER[(i+1)%ORDER.length];}});
   save(KEY_ACC,accounts);renderAccounts();
@@ -583,7 +603,7 @@ $('accountList').addEventListener('click',function(e){
 });
 function fillAcc(a){
   $('acc-name').value=a?a.name:'';$('acc-notes').value=a&&a.notes||'';$('acc-model').value=a?(a.model||''):(cur||'');
-  $('acc-num').value=a&&a.num||'';$('acc-mail').value=a&&a.mail||'';$('acc-phone').value=a&&a.phone||'';$('acc-photo').value='';
+  $('acc-num').value=a&&a.num||'';$('acc-mail').value=a&&a.mail||'';$('acc-phone').value=a&&a.phone||'';$('acc-pass').value=a&&a.pass||'';$('acc-mailpass').value=a&&a.mailpass||'';$('acc-photo').value='';
   $('accOv').className='ov show';$('acc-name').focus();
 }
 function openAddAccount(){editingAccountId=null;$('accModalTitle').textContent='Ajouter un compte';fillAcc(null);}
@@ -615,13 +635,13 @@ $('accCancelBtn').addEventListener('click',closeAccModal);
 $('accOv').addEventListener('click',function(e){if(e.target===this)closeAccModal();});
 $('accSaveBtn').addEventListener('click',async function(){
   var name=$('acc-name').value.trim();if(!name){$('acc-name').focus();return;}
-  var notes=$('acc-notes').value.trim(),model=$('acc-model').value.trim(),num=$('acc-num').value.replace(/\D/g,''),mail=$('acc-mail').value.trim(),phone=$('acc-phone').value.trim();
+  var notes=$('acc-notes').value.trim(),model=$('acc-model').value.trim(),num=$('acc-num').value.replace(/\D/g,''),mail=$('acc-mail').value.trim(),phone=$('acc-phone').value.trim(),pass=$('acc-pass').value.trim(),mailpass=$('acc-mailpass').value.trim();
   var newPhoto=await readPhotoAsDataUrl($('acc-photo'));
   if(editingAccountId){
     var acc=accounts.filter(function(a){return a.id===editingAccountId;})[0];
-    acc.name=name;acc.notes=notes;acc.num=num;acc.model=model;acc.mail=mail;acc.phone=phone;if(newPhoto)acc.photo=newPhoto;
+    acc.name=name;acc.notes=notes;acc.num=num;acc.model=model;acc.mail=mail;acc.phone=phone;acc.pass=pass;acc.mailpass=mailpass;if(newPhoto)acc.photo=newPhoto;
   }else{
-    accounts.push({id:uid(),name:name,notes:notes,num:num,model:model,mail:mail,phone:phone,photo:newPhoto,status:'actif'});
+    accounts.push({id:uid(),name:name,notes:notes,num:num,model:model,mail:mail,phone:phone,pass:pass,mailpass:mailpass,photo:newPhoto,status:'actif'});
   }
   save(KEY_ACC,accounts);closeAccModal();renderAccounts();
 });
@@ -785,7 +805,7 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
       try{ sheetImages = await readSheetImages(evt.target.result); }catch(err){ console.warn('Lecture des photos impossible', err); }
       const clean = (v) => (v === undefined || v === null) ? '' : String(v).trim();
       const norm = (v) => clean(v).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-      const found = [];
+      const found = []; let passCols = false;
       wb.SheetNames.forEach(sheetName => {
         if(/^ARCHIV/.test(norm(sheetName))) return;   // l'onglet ARCHIVAGE (comptes désactivés) n'est pas un modèle
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, raw:true, defval:'' });
@@ -797,6 +817,9 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
         const col = (label) => head.indexOf(label);
         const cProxy = col('NOM DU PROXY'), cProfile = col('NOM DU PROFIL IG'), cMail = col('ADRESSE MAIL'), cPhone = col('NUMERO DE TELEPHONE');
         const cStatus = col('STATUT'), cPhoto = col('PHOTO DE PROFIL');
+        const isPassHead = (h) => /PASS|MDP/.test(h);
+        let cPass = head.findIndex(h => isPassHead(h) && !/MAIL/.test(h)), cMailPass = head.findIndex(h => isPassHead(h) && /MAIL/.test(h));
+        if(cPass >= 0) passCols = true; if(cMailPass >= 0) passCols = true;
         const imgs = sheetImages[sheetName] || [];
         const photoAt = (xlRow) => { const hit = imgs.find(i => i.row === xlRow && (cPhoto < 0 || i.col === cPhoto)); return hit ? hit.photo : null; };
         // nom du modèle : la ligne "LUNA (CATA)" juste au-dessus de l'en-tête, sinon le nom de l'onglet
@@ -813,14 +836,14 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
           const isOff = cStatus >= 0 && /^DESACTIV/.test(norm(rows[r][cStatus]));   // colonne STATUT = « Désactivé »
           if(isOff || reds.has(r + rowOffset + 1)){ skippedRed.push(profile); continue; }
           const mNum = cProxy >= 0 ? clean(rows[r][cProxy]).match(/^(\d+)/) : null;
-          found.push({ name: profile, num: mNum ? mNum[1] : '', model: modelLabel, mail: clean(rows[r][cMail]), phone: clean(rows[r][cPhone]), photo: photoAt(r + rowOffset + 1) });
+          found.push({ name: profile, num: mNum ? mNum[1] : '', model: modelLabel, mail: clean(rows[r][cMail]), phone: clean(rows[r][cPhone]), pass: cPass >= 0 ? clean(rows[r][cPass]) : '', mailpass: cMailPass >= 0 ? clean(rows[r][cMailPass]) : '', photo: photoAt(r + rowOffset + 1) });
         }
       });
       if(!found.length){
         msg.textContent = "⚠ Aucun compte trouvé : il me faut une colonne « NOM DU PROFIL IG » dans le fichier.";
         return;
       }
-      let added = 0, updated = 0, removed = 0, photos = 0;
+      let added = 0, updated = 0, removed = 0, photos = 0, nPass = 0;
       for(let i = accounts.length - 1; i >= 0; i--){ if(accounts[i].model === 'Archivage'){ accounts.splice(i, 1); removed++; } }   // nettoie un ancien import qui avait lu l'onglet ARCHIVAGE
       skippedRed.forEach(n => {
         const i = accounts.findIndex(a => a.name.trim().toLowerCase() === n.toLowerCase());
@@ -828,12 +851,12 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
       });
       found.forEach(f => {
         const ex = accounts.find(a => a.name.trim().toLowerCase() === f.name.toLowerCase());
-        if(ex){ ex.num = f.num || ex.num || ''; ex.model = f.model; ex.mail = f.mail; ex.phone = f.phone; if(f.photo){ ex.photo = f.photo; photos++; } updated++; }
-        else { accounts.push({ id: uid(), name: f.name, num: f.num, notes: '', model: f.model, mail: f.mail, phone: f.phone, photo: f.photo || null, status: 'actif' }); added++; if(f.photo) photos++; }
+        if(ex){ ex.num = f.num || ex.num || ''; ex.model = f.model; ex.mail = f.mail; ex.phone = f.phone; if(f.pass){ ex.pass = f.pass; nPass++; } if(f.mailpass) ex.mailpass = f.mailpass; if(f.photo){ ex.photo = f.photo; photos++; } updated++; }
+        else { accounts.push({ id: uid(), name: f.name, num: f.num, notes: '', model: f.model, mail: f.mail, phone: f.phone, pass: f.pass || '', mailpass: f.mailpass || '', photo: f.photo || null, status: 'actif' }); if(f.pass) nPass++; added++; if(f.photo) photos++; }
       });
       await storageSet(ACCOUNTS_KEY, accounts);
       renderAccounts();
-      msg.textContent = '✓ ' + added + ' compte(s) ajouté(s), ' + updated + ' mis à jour' + (photos ? ', ' + photos + ' photo(s) importée(s)' : '') + '. Statuts conservés.' +
+      msg.textContent = '✓ ' + added + ' compte(s) ajouté(s), ' + updated + ' mis à jour' + (photos ? ', ' + photos + ' photo(s) importée(s)' : '') + '. Statuts conservés.' + (passCols ? ' · ' + nPass + ' mot(s) de passe importé(s).' : ' · ⚠ Colonne mot de passe introuvable (cherche un en-tête contenant « MOT DE PASSE » ou « MDP »).') +
         (skippedRed.length ? ' · Ignorés (désactivés) : ' + skippedRed.join(', ') + (removed ? ' — ' + removed + ' retiré(s) du tableau de bord.' : '.') : '');
     }catch(err){
       console.error(err);

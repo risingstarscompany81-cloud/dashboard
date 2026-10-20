@@ -513,42 +513,28 @@
     </div>
     </div>
     <div class="col" id="colB">
+    <div class="block" id="block-pageinsta">
+    <div class="block-head" data-toggle="block-pageinsta">
+      <span class="toggle-arrow">▾</span><span class="block-emoji">📸</span><span class="block-title">Page Instagram</span>
+    </div>
+    <div class="block-body">
+      <a class="btn-new" href="instagram.html" style="text-decoration:none;display:inline-block;">Ouvrir la page Instagram →</a>
+      <div class="sub-meta" style="margin-top:8px;">Comptes · feed · planning · highlights</div>
+    </div>
+  </div>
     <div class="block" id="block-contenu">
       <div class="block-head" data-toggle="block-contenu">
         <span class="toggle-arrow">▾</span><span class="block-emoji">🎞️</span><span class="block-title">Contenu Instagram</span>
       </div>
       <div class="block-body">
         <div class="contenu-links">
-          <a class="contenu-link" href="instagram.html" style="grid-column:1/-1"><span class="contenu-dot" style="background:#8B5E3C"></span><span class="contenu-name">Espace Instagram</span><span class="contenu-meta">feed · planning · comptes</span></a>
+          
           <a class="contenu-link" href="https://claude.ai/artifact/QzW5Rn7nqmzUR65aoJyVYs" target="_blank" rel="noopener"><span class="contenu-dot" style="background:#c2417a"></span><span class="contenu-name">Luna</span><span class="contenu-meta">6 comptes</span></a>
           <a class="contenu-link" href="https://claude.ai/artifact/BVwhNAZpFQgNx3Um5ZNKpN" target="_blank" rel="noopener"><span class="contenu-dot" style="background:#1f7a8c"></span><span class="contenu-name">Lucia</span><span class="contenu-meta">3 comptes</span></a>
           <a class="contenu-link" href="https://claude.ai/artifact/Br6BF1cQMA3CAxNWKoUUPD" target="_blank" rel="noopener"><span class="contenu-dot" style="background:#b7651b"></span><span class="contenu-name">Sofia</span><span class="contenu-meta">2 comptes</span></a>
         </div>
       </div>
     </div>
-    <div class="block" id="block-insta">
-    <div class="block-head" data-toggle="block-insta">
-      <span class="toggle-arrow">▾</span><span class="block-emoji">📸</span><span class="block-title">Comptes Instagram</span>
-    </div>
-    <div class="block-body">
-      <div id="atomicReminder" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px 10px;background:var(--bg-gray);border-radius:7px;">
-        <input type="checkbox" id="atomicCheck" style="width:16px;height:16px;accent-color:var(--text);cursor:pointer;">
-        <label for="atomicCheck" style="font-size:13px;cursor:pointer;flex:1;">Boîte AtomicMail vérifiée aujourd'hui</label>
-        <span id="atomicLastCheck" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--text-faint);"></span>
-      </div>
-      <div class="columns">
-        <div>
-          <p class="widget-title">Trame de création</p>
-          <div class="todo-input-row"><span class="plus">＋</span><input id="trameInput" type="text" placeholder="Ajouter une étape de la trame…"></div>
-          <ul class="todo-list" id="trameList"></ul>
-        </div>
-        <div>
-          <p class="widget-title">Suivi des comptes</p>
-          <div id="accountSummary" style="margin:6px 0 12px;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
     <div class="block" id="block-subs">
     <div class="block-head" data-toggle="block-subs">
       <span class="toggle-arrow">▾</span><span class="block-emoji">💳</span><span class="block-title">Abonnements</span>
@@ -693,12 +679,10 @@ const ITEMS_KEY = 'dashboard-items-v1';
 const TODOS_KEY = 'dashboard-todos-v1';
 const NOTES_KEY = 'dashboard-notes-v1';
 const WEATHER_MANUAL_KEY = 'dashboard-weather-manual-v1';
-const TRAME_KEY = 'dashboard-trame-v1';
 const DAILY_KEY = 'dashboard-daily-v1';
 const ACCOUNTS_KEY = 'dashboard-accounts-v1';
 const SUBS_KEY = 'dashboard-subs-v1';
 const FINANCES_KEY = 'dashboard-finances-v1';
-const ATOMIC_CHECK_KEY = 'dashboard-atomic-check-v1';
 const MIGRATION_KEY = 'dashboard-migration-v2';
 // palette façon "tags" Notion
 const PALETTE = ['#9B9A97','#D9730D','#0F7B6C','#0B6E99','#6940A5','#AD1A72','#64473A'];
@@ -706,7 +690,6 @@ const FALLBACK_COORDS = { lat: 43.9298, lon: 2.1467, label: 'Albi' };
 
 let items = [];
 let todos = [];
-let trame = [];
 let daily = [];
 let accounts = [];
 let subs = [];
@@ -926,37 +909,6 @@ document.getElementById('dailyInput').addEventListener('keydown', (e) => { if(e.
 document.getElementById('dailyTime').addEventListener('keydown', (e) => { if(e.key === 'Enter') addDaily(); });
 setInterval(renderDailyTick, 60000); // met à jour le rouge « en retard » et le changement de jour
 
-/* ===================== Trame de création (Insta) ===================== */
-function renderTrame(){
-  const list = document.getElementById('trameList');
-  if(trame.length === 0){ list.innerHTML = '<li class="muted-italic">Ajoute les étapes de ta trame.</li>'; return; }
-  list.innerHTML = trame.map(t => `
-    <li class="todo-item ${t.done ? 'done' : ''}" data-id="${t.id}">
-      <input type="checkbox" ${t.done ? 'checked' : ''} data-id="${t.id}" class="trame-check">
-      <span class="txt" title="Double-clic pour modifier">${escapeHtml(t.text)}</span>
-      <button class="ed" data-edit="${t.id}" title="Modifier">✎</button>
-      <button class="rm" data-id="${t.id}" title="Supprimer">✕</button>
-    </li>`).join('');
-  list.querySelectorAll('.trame-check').forEach(cb => cb.addEventListener('change', () => {
-    trame.find(x => x.id === cb.dataset.id).done = cb.checked;
-    storageSet(TRAME_KEY, trame); renderTrame();
-  }));
-  list.querySelectorAll('.rm').forEach(btn => btn.addEventListener('click', () => {
-    trame = trame.filter(x => x.id !== btn.dataset.id);
-    storageSet(TRAME_KEY, trame); renderTrame();
-  }));
-  wireEditable(list, trame, renderTrame, () => storageSet(TRAME_KEY, trame));
-}
-document.getElementById('trameInput').addEventListener('keydown', (e) => {
-  if(e.key === 'Enter'){
-    const val = e.target.value.trim(); if(!val) return;
-    trame.push({ id: uid(), text: val, done: false });
-    e.target.value = '';
-    storageSet(TRAME_KEY, trame); renderTrame();
-  }
-});
-
-
 /* ===================== Ma journée (fenêtre d'accueil du matin) ===================== */
 const SUIVI_PATH = 'D:\\OFM\\SUIVI\\SUIVI QUOTIDIEN .xlsx';
 const SUIVI_EXCEL_URI = 'ms-excel:ofe|u|file:///D:/OFM/SUIVI/SUIVI%20QUOTIDIEN%20.xlsx';
@@ -1174,24 +1126,6 @@ function checkupInit(){ ckLoad(); ckRollover(); ckSave(); renderCkArchive(); ckF
 /* ===================== Suivi des comptes Insta ===================== */
 const ACCOUNT_STATUSES = ['actif', 'restriction', 'desactive'];
 const ACCOUNT_STATUS_LABELS = { actif: 'Actif', restriction: 'Restriction', desactive: 'Désactivé' };
-
-function renderAccountSummary(){
-  const box = document.getElementById('accountSummary');
-  if(!box) return;
-  if(accounts.length === 0){ box.innerHTML = '<span class="muted-italic">Aucun compte pour l\'instant : ouvre la page Instagram pour en ajouter ou importer ton Excel.</span>'; return; }
-  const by = {};
-  accounts.forEach(a => { const m = a.model || 'Sans modèle'; by[m] = (by[m] || 0) + 1; });
-  const act = accounts.filter(a => a.status === 'actif').length;
-  const rest = accounts.filter(a => a.status === 'restriction').length;
-  const off = accounts.filter(a => a.status === 'desactive').length;
-  box.innerHTML =
-    '<div style="font-size:14px;margin-bottom:8px;"><b>' + accounts.length + '</b> comptes · ' + act + ' actifs' + (rest ? ' · ' + rest + ' en restriction' : '') + (off ? ' · ' + off + ' désactivés' : '') + '</div>' +
-    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">' +
-    Object.keys(by).map(m => '<span class="sub-meta" style="background:var(--bg-gray);border-radius:999px;padding:3px 10px;">' + escapeHtml(m) + ' · ' + by[m] + '</span>').join('') + '</div>' +
-    '<a href="instagram.html#comptes" class="btn-new" style="text-decoration:none;display:inline-block;">Gérer les comptes →</a>';
-}
-
-function renderAccounts(){ renderAccountSummary(); }
 
 /* ===================== Abonnements ===================== */
 let editingSubId = null;
@@ -1706,22 +1640,6 @@ function todayStr(){
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-async function initAtomicCheck(){
-  const saved = await storageGet(ATOMIC_CHECK_KEY);
-  const today = todayStr();
-  const checkbox = document.getElementById('atomicCheck');
-  const lastLabel = document.getElementById('atomicLastCheck');
-  const isCheckedToday = saved && saved.date === today && saved.checked;
-  checkbox.checked = !!isCheckedToday;
-  if(saved && saved.date && saved.date !== today){
-    lastLabel.textContent = 'Dernière fois : ' + saved.date.split('-').reverse().join('/');
-  }
-  checkbox.addEventListener('change', () => {
-    storageSet(ATOMIC_CHECK_KEY, { date: today, checked: checkbox.checked });
-    if(checkbox.checked) lastLabel.textContent = '';
-  });
-}
-
 function initWeather(){
   const body = document.getElementById('weatherBody');
   if(navigator.geolocation){
@@ -2099,9 +2017,6 @@ function newToolItems(){
   const loadedDaily = await storageGet(DAILY_KEY);
   daily = loadedDaily === null ? [] : loadedDaily;
 
-  const loadedTrame = await storageGet(TRAME_KEY);
-  trame = loadedTrame === null ? [] : loadedTrame;
-
   const loadedAccounts = await storageGet(ACCOUNTS_KEY);
   accounts = loadedAccounts === null ? [] : loadedAccounts;
 
@@ -2120,7 +2035,7 @@ function newToolItems(){
   } else { notes = loadedNotes2; }
   renderNotes(); renderNotesFolder();
 
-  render(); renderTodos(); renderDaily(); renderTrame(); renderAccounts(); renderSubs(); initWeather(); initAtomicCheck(); checkupInit(); showWelcomeIfNeeded();
+  render(); renderTodos(); renderDaily(); renderSubs(); initWeather(); checkupInit(); showWelcomeIfNeeded();
 
   const loadedFinances = await storageGet(FINANCES_KEY);
   renderFinances(loadedFinances);
