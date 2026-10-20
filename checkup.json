@@ -1,24 +1,27 @@
 {
-  "date": "2026-10-19",
-  "rev": 2,
+  "date": "2026-10-20",
+  "rev": 3,
   "done": [
-    "Contrôle de 14h15 fait : 0★ à 14h15 (0/16 offres, 18 nouvelles conv.), hier 794★ ≈ 10,3 $ → aucun palier",
-    "Vente de nuit : Javi (Sofia) 794★ à 1h50 ; portefeuille 47,64 $",
-    "Bots Luna, Sofia, Lucia connectés, IA activée, qualité d'envoi 100 %",
-    "Médias : aucun problème nouveau (4 vocaux connus non utilisés), aucune étape sans média ni bloquée",
-    "Persona Luna vérifiée (texte Rapide, négociation hybride) : OK",
-    "Notes IA créées pour Javi (Sofia) et Gérald Beaudza (Luna), complétées pour Angel et Javi (Luna)",
-    "Pubs Meta décrites : Espagne, ~10 $, un compte IG dédié par modèle ; Luna : compte IG France @lunaaxx_sp lancé"
+    "Contrôle de 14h15 fait : 1 721★ ≈ 22,4 $ (2/30 offres, 15 nouvelles conv.), hier 794★ ≈ 10,3 $ → alerte Seuil en danger (17 %)",
+    "Luna : 60 h sans vente cassées par Pepe G (530★ puis 1191★) ; Sofia : dernière vente Pedro Castañeda 794★ le 19/10 à 20h59",
+    "Bots Luna, Sofia, Lucia connectés, IA activée, qualité d'envoi 100 % ; portefeuille 41,10 $ (~8 jours)",
+    "Médias : toujours les 4 vocaux connus (1 Luna, 3 Sofia) ; aucune vidéo illisible signalée ; script Luna « Canapé - Bas Résille » actif (7 étapes OK)",
+    "Notes IA créées pour Pepe G (Luna) et Pedro Castañeda Villegas (Sofia)",
+    "Pub Mexique de Luna : confirmée coupée depuis la nuit du 10 au 11/10 (BM sauté) ; contrôle de 14h15 mis à jour"
   ],
   "todo": [
+    "Sofia : nouvelles conv. -78 % vs hier (2 contre 9) — surveiller",
+    "Sofia : l'IA répond en anglais avec « . » et « W_G Willlli » (fans anglophones) — vérifier ; Vahid dit ne pas pouvoir acheter d'étoiles depuis l'Iran",
+    "Luna : suivre le taux d'achat ; quand stable 2-3 jours, proposer le test PPV2 « Retour des cours » 828★ → 662★",
+    "Compléter les notes IA de Pepe G (Luna) et Pedro Castañeda Villegas (Sofia)",
     "Sofia/Javi : le texte de l'offre annonçait 794★ mais le prix affiché était 1323★ — vérifier le script",
     "Reprise manuelle (scripts épuisés) : Luna 7 (dont Carlos Álvarez, acheteur), Sofia 2, Lucia 10",
-    "Lucia : aucune vente ni activité depuis le 11/10 — voir pourquoi",
+    "Lucia : aucune vente ni activité depuis le 11/10 (pub désactivée) — voir pourquoi",
     "Vérifier l'import Telestars du dossier SPA, puis les 23 autres un par un",
     "Ré-importer COMPTES IG PROXY.xlsx une fois et remettre les photos de profil",
     "Confirmer que le dossier NOTES enregistre bien les fichiers .md",
     "Abonnement Telegram de Sofia (5,49 €) du 18 : saisie faite ?",
-    "Pubs : BM sauté, compte pub de Lucia désactivé, pub Mexique de Luna encore active — à stabiliser",
+    "Pubs : BM sauté, compte pub de Lucia désactivé, pub Mexique de Luna coupée — stabiliser les pubs Espagne",
     "Lucia : retenter le transfert du bot quand le délai de ~21 jours est passé",
     "Demain 14h15 : contrôle des ventes (seuil 130 $) + médias"
   ],
