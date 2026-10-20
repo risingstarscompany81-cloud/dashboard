@@ -544,17 +544,7 @@
         </div>
         <div>
           <p class="widget-title">Suivi des comptes</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-            <button class="btn-new" id="openAddAccount">＋ Ajouter un compte</button>
-            <button class="btn-new" id="importAccounts" title="Lit ton fichier COMPTES IG PROXY.xlsx">⇪ Importer depuis l'Excel</button>
-            <input type="file" id="accFileInput" accept=".xlsx" style="display:none;">
-          </div>
-          <div class="sub-meta" id="accImportMsg" style="margin-bottom:8px;"></div>
           <div id="accountSummary" style="margin:6px 0 12px;"></div>
-          <details id="accManage" style="margin-top:6px;">
-            <summary style="cursor:pointer;font-size:13px;color:var(--text-gray);padding:4px 0;">Gérer les comptes (modifier, supprimer, photo)</summary>
-            <ul class="todo-list" id="accountList" style="margin-top:8px;"></ul>
-          </details>
         </div>
       </div>
     </div>
@@ -665,26 +655,6 @@
     <div class="modal-actions">
       <button class="btn-secondary" id="cancelBtn">Annuler</button>
       <button class="btn-primary" id="saveBtn">Enregistrer</button>
-    </div>
-  </div>
-</div>
-
-<div class="overlay" id="accOverlay">
-  <div class="modal">
-    <h2 id="accModalTitle">Ajouter un compte</h2>
-    <div class="field"><label for="acc-name">Nom du compte</label><input id="acc-name" type="text" placeholder="Ex : @moncompte"></div>
-    <div class="field"><label for="acc-num">N° (ton numéro du compte)</label><input id="acc-num" type="text" inputmode="numeric" placeholder="Ex : 1"></div>
-    <div class="field"><label for="acc-model">Modèle</label><input id="acc-model" type="text" placeholder="Ex : Luna"></div>
-    <div class="field"><label for="acc-mail">Adresse mail</label><input id="acc-mail" type="text"></div>
-    <div class="field"><label for="acc-phone">Téléphone</label><input id="acc-phone" type="text"></div>
-    <div class="field">
-      <label for="acc-photo">Photo de profil</label>
-      <input id="acc-photo" type="file" accept="image/*">
-    </div>
-    <div class="field"><label for="acc-notes">Notes</label><input id="acc-notes" type="text" placeholder="Infos, remarques…"></div>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="accCancelBtn">Annuler</button>
-      <button class="btn-primary" id="accSaveBtn">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -1204,12 +1174,11 @@ function checkupInit(){ ckLoad(); ckRollover(); ckSave(); renderCkArchive(); ckF
 /* ===================== Suivi des comptes Insta ===================== */
 const ACCOUNT_STATUSES = ['actif', 'restriction', 'desactive'];
 const ACCOUNT_STATUS_LABELS = { actif: 'Actif', restriction: 'Restriction', desactive: 'Désactivé' };
-let editingAccountId = null;
 
 function renderAccountSummary(){
   const box = document.getElementById('accountSummary');
   if(!box) return;
-  if(accounts.length === 0){ box.innerHTML = '<span class="muted-italic">Aucun compte pour l\'instant : importe ton Excel ou ajoutes-en un.</span>'; return; }
+  if(accounts.length === 0){ box.innerHTML = '<span class="muted-italic">Aucun compte pour l\'instant : ouvre la page Instagram pour en ajouter ou importer ton Excel.</span>'; return; }
   const by = {};
   accounts.forEach(a => { const m = a.model || 'Sans modèle'; by[m] = (by[m] || 0) + 1; });
   const act = accounts.filter(a => a.status === 'actif').length;
@@ -1219,339 +1188,10 @@ function renderAccountSummary(){
     '<div style="font-size:14px;margin-bottom:8px;"><b>' + accounts.length + '</b> comptes · ' + act + ' actifs' + (rest ? ' · ' + rest + ' en restriction' : '') + (off ? ' · ' + off + ' désactivés' : '') + '</div>' +
     '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">' +
     Object.keys(by).map(m => '<span class="sub-meta" style="background:var(--bg-gray);border-radius:999px;padding:3px 10px;">' + escapeHtml(m) + ' · ' + by[m] + '</span>').join('') + '</div>' +
-    '<a href="comptes.html" class="btn-new" style="text-decoration:none;display:inline-block;">Voir tous les comptes →</a>';
+    '<a href="instagram.html#comptes" class="btn-new" style="text-decoration:none;display:inline-block;">Gérer les comptes →</a>';
 }
 
-function renderAccounts(){
-  renderAccountSummary();
-  const list = document.getElementById('accountList');
-  if(accounts.length === 0){ list.innerHTML = '<li class="muted-italic">Ajoute un compte à suivre.</li>'; return; }
-  list.innerHTML = accounts.map(a => {
-    const initials = (a.name.trim()[0] || '?').toUpperCase();
-    const avatar = a.photo
-      ? `<img class="account-avatar" src="${a.photo}" alt="">`
-      : `<div class="account-avatar">${escapeHtml(initials)}</div>`;
-    return `
-    <li class="account-card">
-      ${avatar}
-      <div class="account-info">
-        <div class="account-name">${a.num ? `<b class="acc-num">${escapeHtml(String(a.num))}</b>` : ''}${escapeHtml(a.name)}</div>
-        ${a.model ? `<div class="account-notes">${escapeHtml(a.model)}</div>` : ''}
-        ${(a.mail || a.phone) ? `<div class="account-notes">${escapeHtml([a.mail, a.phone].filter(Boolean).join(' · '))}</div>` : ''}
-        ${a.notes ? `<div class="account-notes">${escapeHtml(a.notes)}</div>` : ''}
-      </div>
-      <div class="account-actions">
-        <span class="status-dot ${a.status}" data-id="${a.id}" title="Cliquer pour changer le statut"></span>
-        <span class="status-label">${ACCOUNT_STATUS_LABELS[a.status]}</span>
-        <button class="icon-btn" data-edit="${a.id}" title="Modifier">✎</button>
-        <button class="rm" data-id="${a.id}">✕</button>
-      </div>
-    </li>`;
-  }).join('');
-  list.querySelectorAll('.status-dot').forEach(dot => dot.addEventListener('click', () => {
-    const acc = accounts.find(x => x.id === dot.dataset.id);
-    const idx = ACCOUNT_STATUSES.indexOf(acc.status);
-    acc.status = ACCOUNT_STATUSES[(idx + 1) % ACCOUNT_STATUSES.length];
-    storageSet(ACCOUNTS_KEY, accounts); renderAccounts();
-  }));
-  list.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => openEditAccount(btn.dataset.edit)));
-  list.querySelectorAll('.rm').forEach(btn => btn.addEventListener('click', () => {
-    accounts = accounts.filter(x => x.id !== btn.dataset.id);
-    storageSet(ACCOUNTS_KEY, accounts); renderAccounts();
-  }));
-}
-
-function openAddAccount(){
-  editingAccountId = null;
-  document.getElementById('accModalTitle').textContent = 'Ajouter un compte';
-  document.getElementById('acc-name').value = '';
-  document.getElementById('acc-notes').value = '';
-  document.getElementById('acc-model').value = '';
-  document.getElementById('acc-num').value = '';
-  document.getElementById('acc-mail').value = '';
-  document.getElementById('acc-phone').value = '';
-  document.getElementById('acc-photo').value = '';
-  document.getElementById('accOverlay').classList.add('open');
-  document.getElementById('acc-name').focus();
-}
-function openEditAccount(id){
-  const acc = accounts.find(a => a.id === id); if(!acc) return;
-  editingAccountId = id;
-  document.getElementById('accModalTitle').textContent = 'Modifier le compte';
-  document.getElementById('acc-name').value = acc.name;
-  document.getElementById('acc-notes').value = acc.notes || '';
-  document.getElementById('acc-model').value = acc.model || '';
-  document.getElementById('acc-num').value = acc.num || '';
-  document.getElementById('acc-mail').value = acc.mail || '';
-  document.getElementById('acc-phone').value = acc.phone || '';
-  document.getElementById('acc-photo').value = '';
-  document.getElementById('accOverlay').classList.add('open');
-  document.getElementById('acc-name').focus();
-}
-function closeAccModal(){ document.getElementById('accOverlay').classList.remove('open'); }
-
-function readPhotoAsDataUrl(fileInput){
-  return new Promise((resolve) => {
-    const file = fileInput.files && fileInput.files[0];
-    if(!file){ resolve(null); return; }
-    /* on réduit la photo (160 px, JPEG) pour qu'elle tienne dans la mémoire du navigateur */
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      const side = Math.min(img.width, img.height), max = 160;
-      const c = document.createElement('canvas'); c.width = c.height = Math.min(max, side);
-      c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url);
-      resolve(c.toDataURL('image/jpeg', 0.82));
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
-    img.src = url;
-  });
-}
-
-document.getElementById('openAddAccount').addEventListener('click', openAddAccount);
-document.getElementById('accCancelBtn').addEventListener('click', closeAccModal);
-document.getElementById('accOverlay').addEventListener('click', (e) => { if(e.target.id === 'accOverlay') closeAccModal(); });
-document.getElementById('accSaveBtn').addEventListener('click', async () => {
-  const name = document.getElementById('acc-name').value.trim();
-  const notes = document.getElementById('acc-notes').value.trim();
-  if(!name){ document.getElementById('acc-name').focus(); return; }
-  const model = document.getElementById('acc-model').value.trim();
-  const num = document.getElementById('acc-num').value.replace(/\D/g,'');
-  const mail = document.getElementById('acc-mail').value.trim();
-  const phone = document.getElementById('acc-phone').value.trim();
-  const newPhoto = await readPhotoAsDataUrl(document.getElementById('acc-photo'));
-  if(editingAccountId){
-    const acc = accounts.find(a => a.id === editingAccountId);
-    acc.name = name; acc.notes = notes; acc.num = num; acc.model = model; acc.mail = mail; acc.phone = phone;
-    if(newPhoto) acc.photo = newPhoto;
-  } else {
-    accounts.push({ id: uid(), name, notes, num, model, mail, phone, photo: newPhoto, status: 'actif' });
-  }
-  storageSet(ACCOUNTS_KEY, accounts);
-  closeAccModal();
-  renderAccounts();
-});
-
-
-
-/* --- détection des lignes marquées en rouge dans l'Excel (police ou surlignage rouge) --- */
-function isRedRgb(rgb){
-  if(!rgb) return false;
-  const h = String(rgb).slice(-6);
-  if(!/^[0-9A-Fa-f]{6}$/.test(h)) return false;
-  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
-  return r >= 0xC0 && g <= 0x70 && b <= 0x70;
-}
-function isRedColorNode(node){
-  if(!node) return false;
-  if(node.getAttribute('rgb')) return isRedRgb(node.getAttribute('rgb'));
-  const idx = node.getAttribute('indexed');
-  return idx === '10' || idx === '2'; // rouge dans la palette Excel classique
-}
-async function readRedRows(arrayBuffer){
-  // renvoie { nomOnglet: Set(numéros de lignes Excel, à partir de 1) } ; vide si JSZip est indisponible
-  const result = {};
-  if(typeof JSZip === 'undefined') return result;
-  const zip = await JSZip.loadAsync(arrayBuffer);
-  const parse = (txt) => new DOMParser().parseFromString(txt, 'application/xml');
-  const ns = '*';
-  const stylesXml = zip.file('xl/styles.xml') ? parse(await zip.file('xl/styles.xml').async('string')) : null;
-  if(!stylesXml) return result;
-  const fonts = Array.from(stylesXml.getElementsByTagNameNS(ns, 'fonts')[0]?.getElementsByTagNameNS(ns, 'font') || []);
-  const fills = Array.from(stylesXml.getElementsByTagNameNS(ns, 'fills')[0]?.getElementsByTagNameNS(ns, 'fill') || []);
-  const xfs = Array.from(stylesXml.getElementsByTagNameNS(ns, 'cellXfs')[0]?.getElementsByTagNameNS(ns, 'xf') || []);
-  const redFont = fonts.map(f => isRedColorNode(f.getElementsByTagNameNS(ns, 'color')[0]));
-  const redFill = fills.map(f => {
-    const pf = f.getElementsByTagNameNS(ns, 'patternFill')[0];
-    if(!pf || pf.getAttribute('patternType') !== 'solid') return false;
-    return isRedColorNode(pf.getElementsByTagNameNS(ns, 'fgColor')[0]);
-  });
-  const redXf = xfs.map(x => !!(redFont[+x.getAttribute('fontId') || 0] || redFill[+x.getAttribute('fillId') || 0]));
-  const wbXml = parse(await zip.file('xl/workbook.xml').async('string'));
-  const relsXml = parse(await zip.file('xl/_rels/workbook.xml.rels').async('string'));
-  const relTarget = {};
-  Array.from(relsXml.getElementsByTagNameNS(ns, 'Relationship')).forEach(r => { relTarget[r.getAttribute('Id')] = r.getAttribute('Target'); });
-  for(const sh of Array.from(wbXml.getElementsByTagNameNS(ns, 'sheet'))){
-    const name = sh.getAttribute('name');
-    const rid = sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
-    let target = relTarget[rid]; if(!target) continue;
-    target = target.replace(/^\/?(xl\/)?/, 'xl/');
-    const f = zip.file(target); if(!f) continue;
-    const sheetXml = parse(await f.async('string'));
-    const set = new Set();
-    Array.from(sheetXml.getElementsByTagNameNS(ns, 'row')).forEach(row => {
-      const rowNum = +row.getAttribute('r');
-      const cells = Array.from(row.getElementsByTagNameNS(ns, 'c')).filter(c => c.getElementsByTagNameNS(ns, 'v').length || c.getElementsByTagNameNS(ns, 'is').length);
-      if(cells.some(c => redXf[+c.getAttribute('s') || 0])) set.add(rowNum);
-    });
-    result[name] = set;
-  }
-  return result;
-}
-
-
-/* --- lecture des photos de profil posées dans l'Excel (images ancrées sur une cellule) --- */
-async function readSheetImages(arrayBuffer){
-  // renvoie { nomOnglet: [ { row (n° de ligne Excel, à partir de 1), col (0 = colonne A), photo (data URL 160 px) } ] }
-  const result = {};
-  if(typeof JSZip === 'undefined') return result;
-  const zip = await JSZip.loadAsync(arrayBuffer);
-  const parse = (txt) => new DOMParser().parseFromString(txt, 'application/xml');
-  const ns = '*', RNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-  const readXml = async (path) => { const f = zip.file(path); return f ? parse(await f.async('string')) : null; };
-  const resolve = (base, target) => {                    // chemin relatif -> chemin absolu dans le zip
-    if(target.startsWith('/')) return target.slice(1);
-    const parts = base.split('/'); parts.pop();
-    target.split('/').forEach(p => { if(p === '..') parts.pop(); else if(p !== '.') parts.push(p); });
-    return parts.join('/');
-  };
-  const relsOf = async (path) => {                       // { Id: chemin absolu }
-    const dir = path.split('/'); const file = dir.pop();
-    const x = await readXml(dir.join('/') + '/_rels/' + file + '.rels'); const m = {};
-    if(x) Array.from(x.getElementsByTagNameNS(ns, 'Relationship')).forEach(r => { m[r.getAttribute('Id')] = resolve(path, r.getAttribute('Target')); });
-    return m;
-  };
-  const toSquare = (blob) => new Promise((ok) => {
-    const url = URL.createObjectURL(blob), img = new Image();
-    img.onload = () => {
-      const side = Math.min(img.width, img.height), c = document.createElement('canvas'); c.width = c.height = Math.min(160, side);
-      c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.82));
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); ok(null); };
-    img.src = url;
-  });
-  const mime = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', bmp:'image/bmp' };
-  // images « placées dans la cellule » (Excel 365) : cellule avec vm -> metadata -> richData -> média
-  const colIdx = (letters) => letters.toUpperCase().split('').reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1;
-  const inCell = { rvOfVm: [], rvRel: [], relMap: {} };
-  try{
-    const md = await readXml('xl/metadata.xml'), rvd = await readXml('xl/richData/rdrichvalue.xml'), rvr = await readXml('xl/richData/richValueRel.xml');
-    if(md && rvd && rvr){
-      const fm = Array.from(md.getElementsByTagNameNS(ns, 'futureMetadata')).find(x => x.getAttribute('name') === 'XLRICHVALUE');
-      const fmI = fm ? Array.from(fm.getElementsByTagNameNS(ns, 'bk')).map(bk => { const r = bk.getElementsByTagNameNS(ns, 'rvb')[0]; return r ? +r.getAttribute('i') : -1; }) : [];
-      const vmeta = md.getElementsByTagNameNS(ns, 'valueMetadata')[0];
-      inCell.rvOfVm = vmeta ? Array.from(vmeta.getElementsByTagNameNS(ns, 'bk')).map(bk => { const rc = bk.getElementsByTagNameNS(ns, 'rc')[0]; return rc ? fmI[+rc.getAttribute('v')] : -1; }) : [];
-      inCell.rvVals = Array.from(rvd.getElementsByTagNameNS(ns, 'rv')).map(rv => { const v = rv.getElementsByTagNameNS(ns, 'v')[0]; return v ? +v.textContent : -1; });
-      inCell.rvRel = Array.from(rvr.getElementsByTagNameNS(ns, 'rel')).map(r => r.getAttributeNS(RNS, 'id'));
-      inCell.relMap = await relsOf('xl/richData/richValueRel.xml');
-    }
-  }catch(err){ console.warn('Images dans les cellules illisibles', err); }
-  const wbXml = await readXml('xl/workbook.xml'); if(!wbXml) return result;
-  const wbRels = await relsOf('xl/workbook.xml');
-  for(const sh of Array.from(wbXml.getElementsByTagNameNS(ns, 'sheet'))){
-    const name = sh.getAttribute('name'), sheetPath = wbRels[sh.getAttributeNS(RNS, 'id')];
-    if(!sheetPath) continue;
-    const sheetRels = await relsOf(sheetPath);
-    const sheetXml = await readXml(sheetPath); if(!sheetXml) continue;
-    const list = [];
-    // 1) images dans les cellules
-    for(const c of Array.from(sheetXml.getElementsByTagNameNS(ns, 'c'))){
-      const vm = c.getAttribute('vm'); if(!vm || !inCell.rvVals) continue;
-      const m = /^([A-Za-z]+)(\d+)$/.exec(c.getAttribute('r') || ''); if(!m) continue;
-      const rvI = inCell.rvOfVm[+vm - 1], relI = inCell.rvVals[rvI], rid = inCell.rvRel[relI], imgPath = inCell.relMap[rid];
-      const f = imgPath && zip.file(imgPath); if(!f) continue;
-      const ext = imgPath.split('.').pop().toLowerCase();
-      const photo = await toSquare(new Blob([await f.async('uint8array')], { type: mime[ext] || 'image/jpeg' }));
-      if(photo) list.push({ row: +m[2], col: colIdx(m[1]), photo });
-    }
-    // 2) images posées sur les cellules
-    const drawing = sheetXml.getElementsByTagNameNS(ns, 'drawing')[0];
-    const drawingPath = drawing ? sheetRels[drawing.getAttributeNS(RNS, 'id')] : null;
-    const dXml = drawingPath ? await readXml(drawingPath) : null;
-    const dRels = dXml ? await relsOf(drawingPath) : {};
-    for(const anchor of (dXml ? Array.from(dXml.documentElement.children) : [])){
-      const from = anchor.getElementsByTagNameNS(ns, 'from')[0];
-      const blip = anchor.getElementsByTagNameNS(ns, 'blip')[0];
-      if(!from || !blip) continue;
-      const imgPath = dRels[blip.getAttributeNS(RNS, 'embed')]; const f = imgPath && zip.file(imgPath); if(!f) continue;
-      const row0 = +from.getElementsByTagNameNS(ns, 'row')[0].textContent, col0 = +from.getElementsByTagNameNS(ns, 'col')[0].textContent;
-      const ext = imgPath.split('.').pop().toLowerCase();
-      const raw = await f.async('uint8array');
-      const photo = await toSquare(new Blob([raw], { type: mime[ext] || 'image/jpeg' }));
-      if(photo) list.push({ row: row0 + 1, col: col0, photo });
-    }
-    result[name] = list;
-  }
-  return result;
-}
-
-/* --- import des comptes depuis COMPTES IG PROXY.xlsx (sans les mots de passe) --- */
-document.getElementById('importAccounts').addEventListener('click', () => document.getElementById('accFileInput').click());
-document.getElementById('accFileInput').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if(!file) return;
-  const msg = document.getElementById('accImportMsg');
-  const reader = new FileReader();
-  reader.onload = async (evt) => {
-    try{
-      const wb = XLSX.read(evt.target.result, { type:'array' });
-      let redRows = {};
-      try{ redRows = await readRedRows(evt.target.result); }catch(err){ console.warn('Lecture des couleurs impossible', err); }
-      let skippedRed = [];
-      let sheetImages = {};
-      try{ sheetImages = await readSheetImages(evt.target.result); }catch(err){ console.warn('Lecture des photos impossible', err); }
-      const clean = (v) => (v === undefined || v === null) ? '' : String(v).trim();
-      const norm = (v) => clean(v).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-      const found = [];
-      wb.SheetNames.forEach(sheetName => {
-        if(/^ARCHIV/.test(norm(sheetName))) return;   // l'onglet ARCHIVAGE (comptes désactivés) n'est pas un modèle
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, raw:true, defval:'' });
-        const rowOffset = XLSX.utils.decode_range(wb.Sheets[sheetName]['!ref']).s.r;
-        const reds = redRows[sheetName] || new Set();
-        const hIdx = rows.findIndex(r => r.some(c => norm(c) === 'NOM DU PROFIL IG'));
-        if(hIdx < 0) return;
-        const head = rows[hIdx].map(norm);
-        const col = (label) => head.indexOf(label);
-        const cProxy = col('NOM DU PROXY'), cProfile = col('NOM DU PROFIL IG'), cMail = col('ADRESSE MAIL'), cPhone = col('NUMERO DE TELEPHONE');
-        const cStatus = col('STATUT'), cPhoto = col('PHOTO DE PROFIL');
-        const imgs = sheetImages[sheetName] || [];
-        const photoAt = (xlRow) => { const hit = imgs.find(i => i.row === xlRow && (cPhoto < 0 || i.col === cPhoto)); return hit ? hit.photo : null; };
-        // nom du modèle : la ligne "LUNA (CATA)" juste au-dessus de l'en-tête, sinon le nom de l'onglet
-        let model = clean(sheetName);
-        for(let r = hIdx - 1; r >= 0; r--){
-          const first = clean(rows[r][0]);
-          if(first && !/COMPTE/i.test(first)){ model = first; break; }
-        }
-        const modelShort = model.replace(/\(.*\)/, '').trim();
-        const modelLabel = modelShort ? modelShort.charAt(0).toUpperCase() + modelShort.slice(1).toLowerCase() : model;
-        for(let r = hIdx + 1; r < rows.length; r++){
-          const profile = clean(rows[r][cProfile]);
-          if(!profile) continue;
-          const isOff = cStatus >= 0 && /^DESACTIV/.test(norm(rows[r][cStatus]));   // colonne STATUT = « Désactivé »
-          if(isOff || reds.has(r + rowOffset + 1)){ skippedRed.push(profile); continue; }
-          const mNum = cProxy >= 0 ? clean(rows[r][cProxy]).match(/^(\d+)/) : null;
-          found.push({ name: profile, num: mNum ? mNum[1] : '', model: modelLabel, mail: clean(rows[r][cMail]), phone: clean(rows[r][cPhone]), photo: photoAt(r + rowOffset + 1) });
-        }
-      });
-      if(!found.length){
-        msg.textContent = "⚠ Aucun compte trouvé : il me faut une colonne « NOM DU PROFIL IG » dans le fichier.";
-        return;
-      }
-      let added = 0, updated = 0, removed = 0, photos = 0;
-      for(let i = accounts.length - 1; i >= 0; i--){ if(accounts[i].model === 'Archivage'){ accounts.splice(i, 1); removed++; } }   // nettoie un ancien import qui avait lu l'onglet ARCHIVAGE
-      skippedRed.forEach(n => {
-        const i = accounts.findIndex(a => a.name.trim().toLowerCase() === n.toLowerCase());
-        if(i >= 0){ accounts.splice(i, 1); removed++; }
-      });
-      found.forEach(f => {
-        const ex = accounts.find(a => a.name.trim().toLowerCase() === f.name.toLowerCase());
-        if(ex){ ex.num = f.num || ex.num || ''; ex.model = f.model; ex.mail = f.mail; ex.phone = f.phone; if(f.photo){ ex.photo = f.photo; photos++; } updated++; }
-        else { accounts.push({ id: uid(), name: f.name, num: f.num, notes: '', model: f.model, mail: f.mail, phone: f.phone, photo: f.photo || null, status: 'actif' }); added++; if(f.photo) photos++; }
-      });
-      await storageSet(ACCOUNTS_KEY, accounts);
-      renderAccounts();
-      msg.textContent = '✓ ' + added + ' compte(s) ajouté(s), ' + updated + ' mis à jour' + (photos ? ', ' + photos + ' photo(s) importée(s)' : '') + '. Statuts conservés.' +
-        (skippedRed.length ? ' · Ignorés (désactivés) : ' + skippedRed.join(', ') + (removed ? ' — ' + removed + ' retiré(s) du tableau de bord.' : '.') : '');
-    }catch(err){
-      console.error(err);
-      msg.textContent = "⚠ Impossible de lire ce fichier — choisis COMPTES IG PROXY.xlsx.";
-    }
-  };
-  reader.readAsArrayBuffer(file);
-  e.target.value = '';
-});
+function renderAccounts(){ renderAccountSummary(); }
 
 /* ===================== Abonnements ===================== */
 let editingSubId = null;
@@ -2238,7 +1878,7 @@ document.getElementById('overlay').addEventListener('click', (e) => { if(e.targe
 document.getElementById('search').addEventListener('click', (e) => e.stopPropagation());
 document.getElementById('search').addEventListener('input', render);
 document.addEventListener('keydown', (e) => {
-  if(e.key === 'Escape'){ closeModal(); closeAccModal(); closeSubModal(); }
+  if(e.key === 'Escape'){ closeModal(); closeSubModal(); }
   if(e.key === 'Enter' && document.getElementById('overlay').classList.contains('open')) handleSave();
 });
 
