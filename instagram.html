@@ -854,7 +854,7 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
         if(ex){ ex.num = f.num || ex.num || ''; ex.model = f.model; ex.mail = f.mail; ex.phone = f.phone; if(f.pass){ ex.pass = f.pass; nPass++; } if(f.mailpass) ex.mailpass = f.mailpass; if(f.photo){ ex.photo = f.photo; photos++; } updated++; }
         else { accounts.push({ id: uid(), name: f.name, num: f.num, notes: '', model: f.model, mail: f.mail, phone: f.phone, pass: f.pass || '', mailpass: f.mailpass || '', photo: f.photo || null, status: 'actif' }); if(f.pass) nPass++; added++; if(f.photo) photos++; }
       });
-      await storageSet(ACCOUNTS_KEY, accounts);
+      await storageSet(KEY_ACC, accounts);
       renderAccounts();
       msg.textContent = '✓ ' + added + ' compte(s) ajouté(s), ' + updated + ' mis à jour' + (photos ? ', ' + photos + ' photo(s) importée(s)' : '') + '. Statuts conservés.' + (passCols ? ' · ' + nPass + ' mot(s) de passe importé(s).' : ' · ⚠ Colonne mot de passe introuvable (cherche un en-tête contenant « MOT DE PASSE » ou « MDP »).') +
         (skippedRed.length ? ' · Ignorés (désactivés) : ' + skippedRed.join(', ') + (removed ? ' — ' + removed + ' retiré(s) du tableau de bord.' : '.') : '');
