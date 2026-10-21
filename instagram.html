@@ -214,6 +214,7 @@
   .th img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;}
   .th.sel{outline:2px solid var(--ink);outline-offset:-2px;}
   .th .used{position:absolute;top:4px;right:4px;background:var(--brown);color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;display:flex;align-items:center;justify-content:center;}
+  .th .vid{position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.55);color:#fff;border-radius:999px;font-size:9.5px;padding:1px 7px;}
   .chip.over{border-color:var(--brown);background:var(--sand);}
   .insp{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
   .insp .pat{padding:6px;}
@@ -330,13 +331,13 @@
       <!-- PHOTOS -->
       <aside class="lib">
         <div class="card" style="padding:16px">
-          <h2 style="font-size:22px">Photos · <span id="libModel"></span></h2>
+          <h2 style="font-size:22px">Photos &amp; réels · <span id="libModel"></span></h2>
           <div class="btns" style="margin:10px 0 4px">
             <button class="btn sm" id="impFolder" type="button">Importer un dossier</button>
-            <button class="btn sm ghost" id="impFiles" type="button">Ajouter des photos</button>
+            <button class="btn sm ghost" id="impFiles" type="button">Ajouter photos / réels</button>
           </div>
           <input type="file" id="fFolder" webkitdirectory multiple style="display:none">
-          <input type="file" id="fFiles" accept="image/*" multiple style="display:none">
+          <input type="file" id="fFiles" accept="image/*,video/*" multiple style="display:none">
           <div class="msg" id="impMsg"></div>
           <div class="chips" id="libCats" style="margin:12px 0 10px"></div>
           <div class="selbar" id="selBar" style="display:none">
@@ -433,7 +434,7 @@
   <label>Date de publication (ajoutée au planning)</label><input type="date" id="mDate">
   <label>Note / légende</label><textarea id="mNote" placeholder="Idée, légende, rappel…"></textarea>
   <label>Photo</label>
-  <input type="file" id="mFile" accept="image/*">
+  <input type="file" id="mFile" accept="image/*,video/*">
   <img id="mPrev" class="preview" style="display:none" alt="">
   <button class="btn sm ghost" id="mPhotoDel" type="button" style="display:none;margin-top:8px">Retirer la photo</button>
   <div class="mfoot">
@@ -574,26 +575,49 @@ function resizeFile(file,max,cb){
   im.onerror=function(){URL.revokeObjectURL(url);cb(null);};
   im.src=url;
 }
+function isVideoFile(f){return /^video\//.test(f.type)||/\.(mp4|mov|m4v|webm)$/i.test(f.name);}
+function videoThumb(file,max,cb){
+  var url=URL.createObjectURL(file),v=document.createElement('video'),done=false;
+  function fin(d,dur){if(done)return;done=true;try{URL.revokeObjectURL(url);}catch(e){}cb(d,dur);}
+  v.muted=true;v.setAttribute('playsinline','');v.preload='auto';
+  v.onloadedmetadata=function(){try{v.currentTime=Math.min(1,(v.duration||2)/4);}catch(e){fin(null);}};
+  v.onseeked=function(){
+    try{
+      var s=Math.min(1,max/Math.max(v.videoWidth,v.videoHeight)),c=document.createElement('canvas');
+      c.width=Math.max(1,Math.round(v.videoWidth*s));c.height=Math.max(1,Math.round(v.videoHeight*s));
+      c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+      fin(c.toDataURL('image/jpeg',0.8),Math.round(v.duration||0));
+    }catch(e){fin(null);}
+  };
+  v.onerror=function(){fin(null);};
+  setTimeout(function(){fin(null);},20000);
+  v.src=url;
+}
+function makeThumb(file,max,cb){
+  if(isVideoFile(file))videoThumb(file,max,function(d,dur){cb(d,dur,true);});
+  else resizeFile(file,max,function(d){cb(d,0,false);});
+}
+function fmtDur(n){var m=Math.floor(n/60),s=n%60;return m+':'+(s<10?'0':'')+s;}
 function catFromPath(f){
   var p=(f.webkitRelativePath||'').split('/');
   return p.length>=3?p[p.length-2]:(p.length===2?p[0]:'Général');
 }
 function importFiles(list,model,catOf){
-  var arr=[].slice.call(list).filter(function(f){return /^image\//.test(f.type)||/\.(jpe?g|png|webp|gif|avif)$/i.test(f.name);});
-  if(!arr.length){$('impMsg').textContent='Aucune image trouvée dans ce choix.';return;}
+  var arr=[].slice.call(list).filter(function(f){return /^image\//.test(f.type)||/\.(jpe?g|png|webp|gif|avif)$/i.test(f.name)||isVideoFile(f);});
+  if(!arr.length){$('impMsg').textContent='Aucune photo ni vidéo trouvée dans ce choix.';return;}
   if(!dbOk)toast('Stockage indisponible : les photos seront perdues à la fermeture');
-  var i=0,added=0,skipped=0,failed=0,have={};
+  var i=0,added=0,skipped=0,failed=0,nVid=0,have={};
   Object.keys(PH).forEach(function(k){if(PH[k].model===model)have[PH[k].key]=1;});
   function next(){
     if(i>=arr.length){
-      $('impMsg').textContent='✓ '+added+' photo(s) importée(s)'+(skipped?' · '+skipped+' déjà présente(s)':'')+(failed?' · '+failed+' illisible(s)':'')+'.';
+      $('impMsg').textContent='✓ '+added+' fichier(s) importé(s)'+(nVid?' dont '+nVid+' vidéo(s)':'')+(skipped?' · '+skipped+' déjà présente(s)':'')+(failed?' · '+failed+' illisible(s)':'')+'.';
       renderLib();renderFeed();return;
     }
     var f=arr[i++],cat=catOf(f),key=cat+'|'+f.name+'|'+f.size;
     $('impMsg').textContent='Import '+i+' / '+arr.length+'…';
     if(have[key]){skipped++;setTimeout(next,0);return;}
-    resizeFile(f,720,function(d){
-      if(d){have[key]=1;idbPut({id:uid(),model:model,cat:cat,key:key,name:f.name,data:d});added++;}else{failed++;}
+    makeThumb(f,720,function(d,dur,vid){
+      if(d){have[key]=1;var rec={id:uid(),model:model,cat:cat,key:key,name:f.name,data:d};if(vid){rec.video=true;rec.dur=dur;}idbPut(rec);added++;nVid+=vid?1:0;}else{failed++;}
       setTimeout(next,0);
     });
   }
@@ -686,8 +710,8 @@ function renderLib(){
   var used={};feedOf(fkey()).cells.forEach(function(c){if(c.pid)used[c.pid]=1;});
   var shown=ps.filter(function(p){return libCat==='all'||p.cat===libCat;});
   $('libGrid').innerHTML=shown.length?shown.map(function(p){
-    return '<div class="th'+(selPid===p.id?' sel':'')+'" draggable="true" data-pid="'+p.id+'" title="'+esc(p.name)+'"><img src="'+p.data+'" alt="" draggable="false">'+(used[p.id]?'<span class="used">✓</span>':'')+'</div>';
-  }).join(''):'<div class="empty" style="grid-column:1/-1">Importe un dossier pour retrouver tes photos ici.</div>';
+    return '<div class="th'+(selPid===p.id?' sel':'')+'" draggable="true" data-pid="'+p.id+'" title="'+esc(p.name)+'"><img src="'+p.data+'" alt="" draggable="false">'+(used[p.id]?'<span class="used">✓</span>':'')+(p.video?'<span class="vid">▶ '+fmtDur(p.dur||0)+'</span>':'')+'</div>';
+  }).join(''):'<div class="empty" style="grid-column:1/-1">Importe un dossier pour retrouver tes photos et réels ici.</div>';
   $('selBar').style.display=selPid&&PH[selPid]?'block':'none';
 }
 $('libCats').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;libCat=b.getAttribute('data-cat');renderLib();});
@@ -762,7 +786,7 @@ document.addEventListener('keydown',function(e){
 });
 
 /* ---- cases : clic, glisser-déposer ---- */
-function placePhoto(i,pid){mutate(function(f){f.cells[i].pid=pid;f.cells[i].img='';});}
+function placePhoto(i,pid){mutate(function(f){f.cells[i].pid=pid;f.cells[i].img='';if(PH[pid]&&PH[pid].video)f.cells[i].type='Réel';});}
 $('cells').addEventListener('click',function(e){
   var c=e.target.closest('.cell');if(!c)return;var i=+c.getAttribute('data-i');
   if(selPid){var id=selPid;selPid=null;placePhoto(i,id);}else openCell(i);
@@ -829,9 +853,9 @@ $('mType').addEventListener('click',function(e){var b=e.target.closest('button')
 $('mPhotoDel').onclick=function(){draft.pid='';draft.img='';drawModal();};
 $('mFile').addEventListener('change',function(){
   var file=this.files&&this.files[0];this.value='';if(!file)return;
-  resizeFile(file,720,function(d){
-    if(!d)return;var id=uid();
-    idbPut({id:id,model:cur,cat:'Ajoutées',key:'m|'+id,name:file.name,data:d});
+  makeThumb(file,720,function(d,dur,vid){
+    if(!d)return;var id=uid(),rec={id:id,model:cur,cat:'Ajoutées',key:'m|'+id,name:file.name,data:d};
+    if(vid){rec.video=true;rec.dur=dur;draft.type='Réel';}idbPut(rec);
     draft.pid=id;draft.img='';drawModal();renderLib();
   });
 });
@@ -910,6 +934,7 @@ function exportPng(){
       g.fillStyle=empty?(dk?'#1a1a1a':'#efefef'):col;g.fillRect(x,y,cw,ch);
       var im=(c.pid&&imgs[c.pid])?imgs[c.pid]:(!c.pid&&c.img?r[2][li++]:null);
       if(im){g.save();g.beginPath();g.rect(x,y,cw,ch);g.clip();coverDraw(g,im,x,y,cw,ch);g.restore();}
+      if(c.type==='Réel'){g.fillStyle='#fff';g.font='34px '+F;g.textAlign='right';g.fillText('▶',x+cw-14,y+44);}
       else if(c.note){g.fillStyle=dark(col)?'#F4ECE0':'#3B2418';g.font='22px '+F;g.textAlign='left';wrapText(g,c.note,cw-30).slice(0,6).forEach(function(l,k){g.fillText(l,x+16,y+34+k*28);});}
     });
     cv.toBlob(function(b){
