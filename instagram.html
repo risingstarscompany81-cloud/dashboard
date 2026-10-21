@@ -33,6 +33,10 @@
   .chip{border:1px solid var(--line);background:var(--card);color:var(--muted);font:inherit;font-size:13px;padding:6px 15px;border-radius:999px;cursor:pointer;}
   .chip.on{background:var(--ink);border-color:var(--ink);color:#F4ECE0;}
   .chip.add{border-style:dashed;}
+  .mchip{display:inline-flex;align-items:center;gap:2px;}
+  .chip.ed{border-top-right-radius:999px;}
+  .mact{border:0;background:none;color:var(--taupe);cursor:pointer;font-size:13px;padding:4px 5px;line-height:1;}
+  .mact:hover{color:var(--ink);}
   .bk{font-size:12px;color:var(--faint);margin-top:6px;}
   .bk button{background:none;border:0;font:inherit;color:var(--muted);cursor:pointer;padding:2px 8px;}
   .bk button:hover{color:var(--ink);text-decoration:underline;}
@@ -339,7 +343,7 @@
       <!-- PHOTOS -->
       <aside class="lib">
         <div class="card" style="padding:16px">
-          <h2 style="font-size:22px">Photos &amp; réels · <span id="libModel"></span></h2>
+          <h2 style="font-size:22px">Photos &amp; réels <span class="note" style="font-size:11px;letter-spacing:0;text-transform:none">· communs à tous les modèles</span></h2>
           <div class="btns" style="margin:10px 0 4px">
             <button class="btn sm" id="impFolder" type="button">Importer un dossier</button>
             <button class="btn sm ghost" id="impFiles" type="button">Ajouter photos / réels</button>
@@ -347,8 +351,7 @@
           <input type="file" id="fFolder" webkitdirectory multiple style="display:none">
           <input type="file" id="fFiles" accept="image/*,video/*" multiple style="display:none">
           <div class="msg" id="impMsg"></div>
-          <select id="libSrc" style="margin:10px 0 0"></select>
-          <div class="chips" id="libCats" style="margin:12px 0 10px"></div>
+                    <div class="chips" id="libCats" style="margin:12px 0 10px"></div>
           <div class="selbar" id="selBar" style="display:none">
             <span>Photo sélectionnée : touche une case pour la placer</span>
             <div class="btns">
@@ -514,7 +517,9 @@ function showTab(){
   renderAll();
 }
 function renderModels(){
-  var h=allModels().map(function(m){return '<button class="chip'+(m===cur?' on':'')+'" data-m="'+esc(m)+'">'+esc(m)+'</button>';}).join('');
+  var h=allModels().map(function(m){
+    var on=m===cur,ed=on&&m!==UNASSIGNED;
+    return '<span class="mchip"><button class="chip'+(on?' on':'')+(ed?' ed':'')+'" data-m="'+esc(m)+'">'+esc(m)+'</button>'+(ed?'<button class="mact" data-ren="1" type="button" title="Renommer">✎</button><button class="mact" data-del="1" type="button" title="Supprimer">✕</button>':'')+'</span>';}).join('');
   h+='<button class="chip add" id="addModel">+ Ajouter un modèle</button>';
   $('models').innerHTML=h;
   var ac='';
@@ -526,12 +531,35 @@ function renderModels(){
 }
 $('models').addEventListener('click',function(e){
   var b=e.target.closest('button');if(!b)return;
+  if(b.getAttribute('data-ren')){renameModel(cur);return;}
+  if(b.getAttribute('data-del')){deleteModel(cur);return;}
   if(b.id==='addModel'){
     var n=prompt('Nom du nouveau modèle ?');if(!n)return;n=n.trim();if(!n)return;
     if(data.models.indexOf(n)<0)data.models.push(n);cur=n;saveData();renderAll();return;
   }
   cur=b.getAttribute('data-m');renderAll();
 });
+function renameModel(m){
+  var n=prompt('Nouveau nom pour « '+m+' » ?',m);if(!n)return;n=n.trim();if(!n||n===m)return;
+  var ex=data.models.filter(function(x){return x.toLowerCase()===n.toLowerCase()&&x!==m;})[0];
+  if(ex){toast('Ce nom existe déjà');return;}
+  data.models=data.models.map(function(x){return x===m?n:x;});
+  accounts.forEach(function(a){if(a.model===m)a.model=n;});
+  data.content.forEach(function(c){if(c.model===m)c.model=n;});
+  data.plan.forEach(function(p){if(p.model===m)p.model=n;});
+  if(feed[m]){feed[n]=feed[m];delete feed[m];saveFeed();}
+  save(KEY_ACC,accounts);cur=n;saveData();renderAll();toast('Modèle renommé');
+}
+function deleteModel(m){
+  var l=modelAccounts(m);
+  if(!confirm('Supprimer le modèle « '+m+' » ?'+(l.length?'\n\nSes '+l.length+' compte(s) passent dans « À attribuer » (leurs feeds sont conservés).':'')))return;
+  accounts.forEach(function(a){if(a.model===m)a.model='';});
+  data.models=data.models.filter(function(x){return x!==m;});
+  data.content=data.content.filter(function(c){return c.model!==m;});
+  data.plan=data.plan.filter(function(p){return p.model!==m;});
+  delete feed[m];saveFeed();save(KEY_ACC,accounts);
+  curAcc='';cur=allModels()[0]||'';saveData();renderAll();toast('Modèle supprimé');
+}
 $('accChips').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;curAcc=b.getAttribute('data-acc');selPid=null;renderAll();});
 
 /* FEED */
@@ -671,7 +699,7 @@ function importFiles(list,model,catOf){
   if(!arr.length){$('impMsg').textContent='Aucune photo ni vidéo trouvée dans ce choix.';return;}
   if(!dbOk)toast('Stockage indisponible : les photos seront perdues à la fermeture');
   var i=0,added=0,skipped=0,failed=0,nVid=0,have={};
-  Object.keys(PH).forEach(function(k){if(PH[k].model===model)have[PH[k].key]=1;});
+  Object.keys(PH).forEach(function(k){have[PH[k].key]=1;});
   function next(){
     if(i>=arr.length){
       $('impMsg').textContent='✓ '+added+' fichier(s) importé(s)'+(nVid?' dont '+nVid+' vidéo(s)':'')+(skipped?' · '+skipped+' déjà présente(s)':'')+(failed?' · '+failed+' illisible(s)':'')+'.';
@@ -740,7 +768,6 @@ function renderFeed(){
   $('phone').className='ig'+(ui.theme==='dark'?' dark':'')+(selPid?' placing':'');
   $('cells').style.setProperty('--ratio',ui.ratio);
   segOn('segTheme',ui.theme);segOn('segRatio',ui.ratio);
-  $('libModel').textContent=cur;
   renderProfile();
   $('cells').innerHTML=f.cells.map(function(c,i){
     var src=cellSrc(c),col=c.c||EMPTY,fg=dark(col)?'#F4ECE0':'#3B2418';
@@ -760,17 +787,12 @@ function renderFeed(){
 }
 
 /* ---- bibliothèque ---- */
-function catKeyOf(p){return libSrc==='all'?p.model+' › '+p.cat:p.cat;}
+function catKeyOf(p){return p.cat;}
 function modelPhotos(){
-  var src=libSrc==='cur'?cur:libSrc;
-  return Object.keys(PH).map(function(k){return PH[k];}).filter(function(p){return src==='all'||p.model===src;})
+  return Object.keys(PH).map(function(k){return PH[k];})
     .sort(function(a,b){return a.cat<b.cat?-1:a.cat>b.cat?1:(a.name<b.name?-1:1);});
 }
 function renderLib(){
-  if(libFor!==cur){libFor=cur;libSrc=(cur===UNASSIGNED?'all':'cur');libCat='all';}
-  var ms={};data.models.forEach(function(m){ms[m]=1;});Object.keys(PH).forEach(function(k){ms[PH[k].model]=1;});delete ms[cur];
-  $('libSrc').innerHTML='<option value="cur">'+esc(cur)+(cur===UNASSIGNED?' (ce groupe)':' (ce modèle)')+'</option><option value="all">Tous les modèles</option>'+Object.keys(ms).map(function(m){return '<option value="'+esc(m)+'">'+esc(m)+'</option>';}).join('');
-  $('libSrc').value=libSrc;
   var ps=modelPhotos(),cats={};
   ps.forEach(function(p){var k=catKeyOf(p);cats[k]=(cats[k]||0)+1;});
   var names=Object.keys(cats);
@@ -784,14 +806,12 @@ function renderLib(){
   }).join(''):'<div class="empty" style="grid-column:1/-1">Importe un dossier pour retrouver tes photos et réels ici.</div>';
   $('selBar').style.display=selPid&&PH[selPid]?'block':'none';
 }
-$('libSrc').addEventListener('change',function(){libSrc=this.value;libCat='all';renderLib();});
 $('libCats').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;libCat=b.getAttribute('data-cat');renderLib();});
 $('libCats').addEventListener('dragover',function(e){if(e.target.closest('button'))e.preventDefault();});
 $('libCats').addEventListener('drop',function(e){
   var b=e.target.closest('button');if(!b)return;e.preventDefault();
   var t=''; try{t=e.dataTransfer.getData('text');}catch(x){}
   if(t.indexOf('photo:')!==0||b.getAttribute('data-cat')==='all')return;
-  if(libSrc==='all'){toast('Choisis un seul modèle dans la liste pour ranger les photos');return;}
   var p=PH[t.slice(6)];if(!p)return;p.cat=b.getAttribute('data-cat');idbPut(p);renderLib();
 });
 $('libGrid').addEventListener('click',function(e){
