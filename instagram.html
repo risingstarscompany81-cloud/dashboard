@@ -33,6 +33,9 @@
   .chip{border:1px solid var(--line);background:var(--card);color:var(--muted);font:inherit;font-size:13px;padding:6px 15px;border-radius:999px;cursor:pointer;}
   .chip.on{background:var(--ink);border-color:var(--ink);color:#F4ECE0;}
   .chip.add{border-style:dashed;}
+  .bk{font-size:12px;color:var(--faint);margin-top:6px;}
+  .bk button{background:none;border:0;font:inherit;color:var(--muted);cursor:pointer;padding:2px 8px;}
+  .bk button:hover{color:var(--ink);text-decoration:underline;}
   .chip.sm{padding:4px 12px;font-size:12px;}
   .btn{border:1px solid var(--ink);background:var(--ink);color:#F4ECE0;font:inherit;font-size:13px;padding:8px 16px;border-radius:999px;cursor:pointer;}
   .btn.ghost{background:transparent;color:var(--ink);}
@@ -235,6 +238,7 @@
     <h1>Instagram</h1>
     <div class="sub">Comptes · Contenu · Planning · Feed</div>
     <div class="rule"></div>
+    <div class="bk"><button type="button" id="bkSave">⇩ Sauvegarder</button><span>·</span><button type="button" id="bkRestore">⇧ Restaurer</button><input type="file" id="bkFile" accept=".json,application/json" style="display:none"></div>
   </header>
   <nav id="nav">
     <button data-t="feed" class="on">Feed</button>
@@ -526,6 +530,50 @@ function cleanupModelFeeds(){
   Object.keys(feed).forEach(function(k){if(k.indexOf('acc:')!==0)delete feed[k];});
   data.feedPerAccount=true;saveFeed();saveData();
 }
+/* ---- sauvegarde / restauration ---- */
+function idbClear(cb){
+  if(!dbOk){cb();return;}
+  try{var r=db.transaction('photos','readwrite').objectStore('photos').clear();r.onsuccess=function(){cb();};r.onerror=function(){cb();};}catch(e){cb();}
+}
+function dayStr(){var d=new Date(),m=d.getMonth()+1,j=d.getDate();return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(j<10?'0':'')+j;}
+$('bkSave').onclick=function(){
+  var safeAcc=accounts.map(function(a){var c={};Object.keys(a).forEach(function(k){if(k!=='pass'&&k!=='mailpass')c[k]=a[k];});return c;});
+  var photos=Object.keys(PH).map(function(k){return PH[k];});
+  var out={app:'dashboard-instagram',version:1,date:new Date().toISOString(),accounts:safeAcc,feed:feed,data:data,photos:photos};
+  var blob=new Blob([JSON.stringify(out)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='instagram-sauvegarde-'+dayStr()+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(a.href);},3000);
+  toast('Sauvegarde téléchargée ('+photos.length+' photo(s)/réel(s)) · mots de passe non inclus');
+};
+$('bkRestore').onclick=function(){$('bkFile').click();};
+$('bkFile').addEventListener('change',function(){
+  var file=this.files&&this.files[0];this.value='';if(!file)return;
+  var rd=new FileReader();
+  rd.onload=function(){
+    var b;try{b=JSON.parse(rd.result);}catch(e){b=null;}
+    if(!b||b.app!=='dashboard-instagram'||!b.feed||!b.data){toast('Ce fichier n\'est pas une sauvegarde Instagram');return;}
+    var n=(b.photos||[]).length;
+    if(!confirm('Restaurer cette sauvegarde ('+String(b.date||'').slice(0,10)+', '+n+' photo(s)/réel(s)) ?\n\nLes feeds, photos, planning, highlights et contenu actuels seront remplacés. Les comptes sont fusionnés et tes mots de passe actuels sont gardés.'))return;
+    // comptes : fusion, mots de passe locaux conservés
+    (b.accounts||[]).forEach(function(a){
+      var ex=accounts.filter(function(x){return String(x.id)===String(a.id);})[0];
+      if(ex){var p=ex.pass,mp=ex.mailpass;Object.keys(a).forEach(function(k){ex[k]=a[k];});if(p)ex.pass=p;if(mp)ex.mailpass=mp;}
+      else accounts.push(a);
+    });
+    save(KEY_ACC,accounts);
+    feed=b.feed;saveFeed();
+    data=b.data;data.models=data.models||[];data.content=data.content||[];data.plan=data.plan||[];data.hl=data.hl||{};data.ui=data.ui||{theme:'light',ratio:'133.33%'};ui=data.ui;
+    accounts.forEach(function(a){if(a.model&&data.models.indexOf(a.model)<0)data.models.push(a.model);});
+    saveData();
+    PH={};selPid=null;hist={};
+    idbClear(function(){
+      (b.photos||[]).forEach(function(p){idbPut(p);});
+      cur=data.models[0];curAcc='';
+      renderAll();toast('Sauvegarde restaurée');
+    });
+  };
+  rd.readAsText(file);
+});
 function openFeed(id){
   var a=accounts.filter(function(x){return String(x.id)===String(id);})[0];if(!a)return;
   var m=a.model||'Sans modèle';if(data.models.indexOf(m)<0)data.models.push(m);
