@@ -317,7 +317,7 @@
               <button class="btn sm" id="shareBtn" type="button">↗ Envoyer vers mon téléphone</button>
               <button class="btn sm danger" id="clearFeed" type="button">Vider le feed</button>
             </div>
-            <p class="note">Images numérotées dans l'ordre de publication (1 = à publier en premier). Elles sont réduites (720 px) : pour publier, retrouve les originaux avec la liste incluse dans le ZIP.</p>
+            <p class="note">Images numérotées dans l'ordre de publication (1 = à publier en premier). Photos réduites (720 px) : retrouve les originaux avec la liste incluse. Les réels sont ajoutés en vidéo entière si tu les as importés depuis ton ordinateur.</p>
           </div>
         </div>
 
@@ -699,8 +699,8 @@ var PH={}, db=null, dbOk=false, selPid=null, libCat='all', hist={}, libSrc='cur'
 /* ---- photos : IndexedDB ---- */
 function idbOpen(cb){
   try{
-    var r=indexedDB.open('dashboard-ig-photos',1);
-    r.onupgradeneeded=function(){r.result.createObjectStore('photos',{keyPath:'id'});};
+    var r=indexedDB.open('dashboard-ig-photos',2);
+    r.onupgradeneeded=function(){var d=r.result;if(!d.objectStoreNames.contains('photos'))d.createObjectStore('photos',{keyPath:'id'});if(!d.objectStoreNames.contains('vids'))d.createObjectStore('vids');};
     r.onsuccess=function(){db=r.result;dbOk=true;cb();};
     r.onerror=function(){cb();};
     r.onblocked=function(){cb();};
@@ -723,6 +723,13 @@ function idbDel(id){
   delete PH[id];
   if(!dbOk)return;
   try{db.transaction('photos','readwrite').objectStore('photos')['delete'](id);}catch(e){}
+  try{db.transaction('vids','readwrite').objectStore('vids')['delete'](id);}catch(e){}
+}
+/* vidéos d'origine (réels entiers) : stockées à part, jamais dans la sauvegarde */
+function vidPut(id,file){if(!dbOk)return;try{db.transaction('vids','readwrite').objectStore('vids').put(file,id);}catch(e){}}
+function vidGet(id,cb){
+  if(!dbOk){cb(null);return;}
+  try{var q=db.transaction('vids','readonly').objectStore('vids').get(id);q.onsuccess=function(){cb(q.result||null);};q.onerror=function(){cb(null);};}catch(e){cb(null);}
 }
 function resizeFile(file,max,cb){
   var url=URL.createObjectURL(file),im=new Image();
@@ -767,7 +774,7 @@ function importFiles(list,model,catOf){
   if(!arr.length){$('impMsg').textContent='Aucune photo ni vidéo trouvée dans ce choix.';return;}
   if(!dbOk)toast('Stockage indisponible : les photos seront perdues à la fermeture');
   var i=0,added=0,skipped=0,failed=0,nVid=0,have={};
-  Object.keys(PH).forEach(function(k){have[PH[k].key]=1;});
+  Object.keys(PH).forEach(function(k){have[PH[k].key]=PH[k].id;});
   function next(){
     if(i>=arr.length){
       $('impMsg').textContent='✓ '+added+' fichier(s) importé(s)'+(nVid?' dont '+nVid+' vidéo(s)':'')+(skipped?' · '+skipped+' déjà présente(s)':'')+(failed?' · '+failed+' illisible(s)':'')+'.';
@@ -775,9 +782,9 @@ function importFiles(list,model,catOf){
     }
     var f=arr[i++],cat=catOf(f),key=cat+'|'+f.name+'|'+f.size;
     $('impMsg').textContent='Import '+i+' / '+arr.length+'…';
-    if(have[key]){skipped++;setTimeout(next,0);return;}
+    if(have[key]){skipped++;if(isVideoFile(f))vidPut(have[key],f);setTimeout(next,0);return;}
     makeThumb(f,720,function(d,dur,vid){
-      if(d){have[key]=1;var rec={id:uid(),model:model,cat:cat,key:key,name:f.name,data:d};if(vid){rec.video=true;rec.dur=dur;}idbPut(rec);added++;nVid+=vid?1:0;}else{failed++;}
+      if(d){var rec={id:uid(),model:model,cat:cat,key:key,name:f.name,data:d};have[key]=rec.id;if(vid){rec.video=true;rec.dur=dur;}idbPut(rec);if(vid)vidPut(rec.id,f);added++;nVid+=vid?1:0;}else{failed++;}
       setTimeout(next,0);
     });
   }
@@ -1118,33 +1125,50 @@ function pubItems(){
     return it;
   });
 }
-function pubFileName(it){return pad2(it.num)+(it.p&&it.p.video?'_reel':'')+'_'+slug(it.p?it.p.name:'photo')+'.jpg';}
+function extOf(n){var m=/\.([a-z0-9]+)$/i.exec(n||'');return m?m[1].toLowerCase():'mp4';}
+function pubBase(it){return pad2(it.num)+(it.p&&it.p.video?'_reel':'')+'_'+slug(it.p?it.p.name:'photo');}
+function pubFileName(it){return pubBase(it)+(it.p&&it.p.video?'_couverture':'')+'.jpg';}
 function frDate(d){return d?d.split('-').reverse().join('/'):'';}
 function exportZip(){
   if(typeof JSZip==='undefined'){toast('ZIP indisponible : vérifie ta connexion');return;}
   var items=pubItems(),f=feedOf(fkey()),handle=f.handle||defHandle();
   if(!items.some(function(i){return i.src;})){toast('Ce feed ne contient aucune image');return;}
-  var zip=new JSZip(),L=[];
+  var zip=new JSZip(),L=[],missing=0,nV=0,pending=items.length;
   L.push('FEED @'+handle+' — '+cur);
   L.push('Genere le '+frDate(dayStr()));
   L.push('');
   L.push('Ordre de publication : 1 = a publier en premier ; la derniere sera tout en haut de la grille.');
-  L.push('Les images du ZIP sont reduites (720 px) : pour publier, utilise les fichiers d\'origine indiques ci-dessous.');
-  L.push('Pour les reels, le ZIP contient seulement une image de couverture : recupere la video d\'origine.');
+  L.push('Les images sont reduites (720 px) : pour publier une photo, utilise le fichier d\'origine indique ci-dessous.');
+  L.push('Les reels : la video d\'origine est dans ce ZIP (fichier *_reel_*) avec une image de couverture (*_couverture.jpg).');
   L.push('');
-  items.forEach(function(it){
+  toast('Préparation du ZIP…');
+  var lines=new Array(items.length);
+  function finish(){
+    L=L.concat(lines.filter(Boolean));
+    zip.file('ordre-de-publication.txt',L.join('\r\n'));
+    zip.generateAsync({type:'blob',compression:'STORE'}).then(function(b){
+      var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='feed-'+handle.replace(/[^a-z0-9_.-]/gi,'')+'.zip';
+      document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(a.href);},60000);
+      toast('ZIP téléchargé'+(nV?' · '+nV+' vidéo(s) incluse(s)':'')+(missing?' · '+missing+' réel(s) sans vidéo d\'origine : ré-importe-les depuis ton dossier':''));
+    });
+  }
+  items.forEach(function(it,idx){
     var c=it.cell,p=it.p;
-    if(!it.num&&!c.note)return;
-    if(it.num){zip.file(pubFileName(it),it.src.split(',')[1],{base64:true});}
-    var head=it.num?pad2(it.num)+' · '+(c.type||'Post'):'— · case sans image'+(c.type?' ('+c.type+')':'');
-    L.push(head+(p?' · fichier d\'origine : '+p.name+' · categorie : '+p.cat+' ('+p.model+')':'')+(c.date?' · a publier le '+frDate(c.date):''));
-    if(c.note)L.push('    Legende / note : '+c.note.replace(/\n/g,' '));
-  });
-  zip.file('ordre-de-publication.txt',L.join('\r\n'));
-  zip.generateAsync({type:'blob'}).then(function(b){
-    var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='feed-'+handle.replace(/[^a-z0-9_.-]/gi,'')+'.zip';
-    document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(a.href);},3000);
-    toast('ZIP téléchargé');
+    function line(extra){
+      if(!it.num&&!c.note)return;
+      var head=it.num?pad2(it.num)+' · '+(c.type||'Post'):'— · case sans image'+(c.type?' ('+c.type+')':'');
+      var t=head+(p?' · fichier d\'origine : '+p.name+' · categorie : '+p.cat+' ('+p.model+')':'')+(c.date?' · a publier le '+frDate(c.date):'')+(extra||'');
+      if(c.note)t+='\r\n    Legende / note : '+c.note.replace(/\n/g,' ');
+      lines[idx]=t;
+    }
+    if(it.num)zip.file(pubFileName(it),it.src.split(',')[1],{base64:true});
+    if(it.num&&p&&p.video){
+      vidGet(p.id,function(file){
+        if(file){zip.file(pubBase(it)+'.'+extOf(p.name),file,{compression:'STORE'});nV++;line(' · video : '+pubBase(it)+'.'+extOf(p.name));}
+        else{missing++;line(' · VIDEO D\'ORIGINE ABSENTE : ré-importe ce réel depuis ton dossier');}
+        if(--pending===0)finish();
+      });
+    }else{line();if(--pending===0)finish();}
   });
 }
 function dataToFile(d,name){
