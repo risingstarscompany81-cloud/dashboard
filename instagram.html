@@ -33,6 +33,14 @@
   .chip{border:1px solid var(--line);background:var(--card);color:var(--muted);font:inherit;font-size:13px;padding:6px 15px;border-radius:999px;cursor:pointer;}
   .chip.on{background:var(--ink);border-color:var(--ink);color:#F4ECE0;}
   .chip.add{border-style:dashed;}
+  .viewbar{display:none;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px;}
+  .viewbar .btn{padding:12px 18px;font-size:14px;}
+  body.view .viewbar{display:flex;}
+  body.view .sidetools,body.view .lib,body.view .center .hint,body.view #addModel,body.view .mact,body.view #openAddAccount,body.view #importAccounts,body.view #accManage,body.view #bkSave,body.view #bkFolder,body.view #bkStatus,body.view .bk span,body.view #nav [data-t="contenu"],body.view #nav [data-t="planning"],body.view #nav [data-t="highlights"]{display:none!important;}
+  body.view .studio{grid-template-columns:minmax(0,1fr);}
+  body.view .cell{cursor:default;}
+  body.view .cell .plus{display:none;}
+
   .efield{position:relative;}
   .efield>input,.efield>textarea{padding-right:38px;}
   .emo{position:absolute;right:6px;top:6px;border:0;background:none;font-size:18px;line-height:1;cursor:pointer;padding:4px;border-radius:8px;opacity:.8;}
@@ -255,7 +263,7 @@
     <h1>Instagram</h1>
     <div class="sub">Comptes · Contenu · Planning · Feed</div>
     <div class="rule"></div>
-    <div class="bk"><button type="button" id="bkSave">⇩ Sauvegarder</button><span>·</span><button type="button" id="bkRestore">⇧ Restaurer</button><span>·</span><button type="button" id="bkFolder">📁 Dossier…</button><input type="file" id="bkFile" accept=".json,application/json" style="display:none"><div id="bkStatus" class="bkstat"></div></div>
+    <div class="bk"><button type="button" id="bkSave">⇩ Sauvegarder</button><span>·</span><button type="button" id="bkRestore">⇧ Restaurer</button><span>·</span><button type="button" id="modeBtn">👁 Consultation</button><span>·</span><button type="button" id="bkFolder">📁 Dossier…</button><input type="file" id="bkFile" accept=".json,application/json" style="display:none"><div id="bkStatus" class="bkstat"></div></div>
   </header>
   <nav id="nav">
     <button data-t="feed" class="on">Feed</button>
@@ -350,6 +358,7 @@
           <div class="ig-tabs"><span class="on">▦</span><span>▷</span><span>☺</span></div>
           <div class="cells" id="cells"></div>
         </div>
+        <div class="viewbar"><button class="btn" id="zipBtn2" type="button">⇩ Télécharger les images (ZIP)</button><button class="btn" id="shareBtn2" type="button">↗ Enregistrer dans mes photos</button></div>
         <p class="hint">Touche une case pour la modifier · glisse une case pour la déplacer · glisse une photo depuis la bibliothèque</p>
       </div>
 
@@ -940,9 +949,11 @@ document.addEventListener('keydown',function(e){
 function placePhoto(i,pid){mutate(function(f){f.cells[i].pid=pid;f.cells[i].img='';if(PH[pid]&&PH[pid].video)f.cells[i].type='Réel';});}
 $('cells').addEventListener('click',function(e){
   var c=e.target.closest('.cell');if(!c)return;var i=+c.getAttribute('data-i');
+  if(document.body.classList.contains('view'))return;
   if(selPid){var id=selPid;selPid=null;placePhoto(i,id);}else openCell(i);
 });
 $('cells').addEventListener('dragstart',function(e){
+  if(document.body.classList.contains('view')){e.preventDefault();return;}
   var c=e.target.closest('.cell');if(!c)return;
   try{e.dataTransfer.setData('text','cell:'+c.getAttribute('data-i'));}catch(x){}
 });
@@ -1152,7 +1163,7 @@ function sharePhotos(){
     shareFallback('Le partage a échoué');
   });
 }
-$('zipBtn').onclick=exportZip;$('shareBtn').onclick=sharePhotos;
+$('zipBtn').onclick=exportZip;$('shareBtn').onclick=sharePhotos;$('zipBtn2').onclick=exportZip;$('shareBtn2').onclick=sharePhotos;
 
 /* ---- dupliquer un feed ---- */
 var dupMode='style';
@@ -1661,6 +1672,17 @@ function renderAll(){
 (function(){var mh=/^#feed=(.+)$/.exec(location.hash);if(!mh)return;var id=decodeURIComponent(mh[1]);
   var a=accounts.filter(function(x){return String(x.id)===id;})[0];if(!a)return;
   var m=a.model||UNASSIGNED;if(m!==UNASSIGNED&&data.models.indexOf(m)<0)data.models.push(m);cur=m;curAcc=String(a.id);tab='feed';})();
+/* mode consultation (téléphone) / édition (ordinateur), mémorisé par appareil */
+var KEY_MODE='dashboard-ig-mode-v1',viewMode;
+(function(){var m=null;try{m=localStorage.getItem(KEY_MODE);}catch(e){}
+  viewMode=m?m==='view':!!(window.matchMedia&&(matchMedia('(pointer:coarse)').matches&&matchMedia('(max-width:900px)').matches));})();
+function applyMode(){
+  document.body.classList.toggle('view',viewMode);
+  $('modeBtn').textContent=viewMode?'✎ Passer en édition':'👁 Consultation';
+  if(viewMode&&['contenu','planning','highlights'].indexOf(tab)>=0)tab='feed';
+}
+$('modeBtn').onclick=function(){viewMode=!viewMode;try{localStorage.setItem(KEY_MODE,viewMode?'view':'edit');}catch(e){}applyMode();showTab();};
+applyMode();
 renderInsp();showTab();
 idbOpen(function(){idbLoad(function(){migrateLegacy();cleanupModelFeeds();renderAll();});});
 </script>
