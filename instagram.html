@@ -52,6 +52,7 @@
   .bk{font-size:12px;color:var(--faint);margin-top:6px;}
   .bk button{background:none;border:0;font:inherit;color:var(--muted);cursor:pointer;padding:2px 8px;}
   .bk button:hover{color:var(--ink);text-decoration:underline;}
+  .bkstat{font-size:11.5px;color:var(--faint);margin-top:4px;min-height:14px;}
   .chip.sm{padding:4px 12px;font-size:12px;}
   .btn{border:1px solid var(--ink);background:var(--ink);color:#F4ECE0;font:inherit;font-size:13px;padding:8px 16px;border-radius:999px;cursor:pointer;}
   .btn.ghost{background:transparent;color:var(--ink);}
@@ -254,7 +255,7 @@
     <h1>Instagram</h1>
     <div class="sub">Comptes · Contenu · Planning · Feed</div>
     <div class="rule"></div>
-    <div class="bk"><button type="button" id="bkSave">⇩ Sauvegarder</button><span>·</span><button type="button" id="bkRestore">⇧ Restaurer</button><input type="file" id="bkFile" accept=".json,application/json" style="display:none"></div>
+    <div class="bk"><button type="button" id="bkSave">⇩ Sauvegarder</button><span>·</span><button type="button" id="bkRestore">⇧ Restaurer</button><span>·</span><button type="button" id="bkFolder">📁 Dossier…</button><input type="file" id="bkFile" accept=".json,application/json" style="display:none"><div id="bkStatus" class="bkstat"></div></div>
   </header>
   <nav id="nav">
     <button data-t="feed" class="on">Feed</button>
@@ -593,15 +594,60 @@ function idbClear(cb){
   try{var r=db.transaction('photos','readwrite').objectStore('photos').clear();r.onsuccess=function(){cb();};r.onerror=function(){cb();};}catch(e){cb();}
 }
 function dayStr(){var d=new Date(),m=d.getMonth()+1,j=d.getDate();return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(j<10?'0':'')+j;}
-$('bkSave').onclick=function(){
+/* dossier de sauvegarde choisi une fois (Chrome / Edge sur ordinateur) */
+var KEY_BKMETA='dashboard-ig-lastbackup-v1';
+function fsOpen(cb){try{var r=indexedDB.open('dashboard-ig-fs',1);r.onupgradeneeded=function(){r.result.createObjectStore('handles');};r.onsuccess=function(){cb(r.result);};r.onerror=function(){cb(null);};}catch(e){cb(null);}}
+function fsGet(cb){fsOpen(function(d){if(!d){cb(null);return;}try{var q=d.transaction('handles').objectStore('handles').get('dir');q.onsuccess=function(){cb(q.result||null);};q.onerror=function(){cb(null);};}catch(e){cb(null);}});}
+function fsSet(h,cb){fsOpen(function(d){if(!d){cb&&cb();return;}try{var t=d.transaction('handles','readwrite');t.objectStore('handles').put(h,'dir');t.oncomplete=function(){cb&&cb();};t.onerror=function(){cb&&cb();};}catch(e){cb&&cb();}});}
+function pickBkFolder(){
+  return window.showDirectoryPicker({id:'instagram-sauvegardes',mode:'readwrite'}).then(function(h){return new Promise(function(ok){fsSet(h,function(){ok(h);});});});
+}
+function getBkFolder(ask){
+  if(!window.showDirectoryPicker)return Promise.resolve(null);
+  return new Promise(function(ok){fsGet(ok);}).then(function(h){
+    if(!h)return ask?pickBkFolder():null;
+    var q=h.queryPermission?h.queryPermission({mode:'readwrite'}):Promise.resolve('granted');
+    return q.then(function(p){return p==='granted'||!h.requestPermission?p:h.requestPermission({mode:'readwrite'});}).then(function(p){
+      if(p==='granted')return h;return ask?pickBkFolder():null;
+    });
+  });
+}
+function bkMeta(){try{return JSON.parse(localStorage.getItem(KEY_BKMETA)||'null');}catch(e){return null;}}
+function renderBkStatus(msg){
+  var el=$('bkStatus');if(!el)return;
+  var m=bkMeta();
+  if(msg){el.textContent=msg;return;}
+  el.textContent=m?'Dernière sauvegarde : '+frDate(m.date)+(m.where?' · enregistrée dans « '+m.where+' »':' · téléchargée dans Téléchargements'):'Aucune sauvegarde pour l\'instant';
+}
+function buildBackup(){
   var safeAcc=accounts.map(function(a){var c={};Object.keys(a).forEach(function(k){if(k!=='pass'&&k!=='mailpass')c[k]=a[k];});return c;});
   var photos=Object.keys(PH).map(function(k){return PH[k];});
-  var out={app:'dashboard-instagram',version:1,date:new Date().toISOString(),accounts:safeAcc,feed:feed,data:data,photos:photos};
-  var blob=new Blob([JSON.stringify(out)],{type:'application/json'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='instagram-sauvegarde-'+dayStr()+'.json';
+  return {n:photos.length,blob:new Blob([JSON.stringify({app:'dashboard-instagram',version:1,date:new Date().toISOString(),accounts:safeAcc,feed:feed,data:data,photos:photos})],{type:'application/json'})};
+}
+function bkDownload(blob,name,n){
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
   document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(a.href);},3000);
-  toast('Sauvegarde téléchargée ('+photos.length+' photo(s)/réel(s)) · mots de passe non inclus');
+  localStorage.setItem(KEY_BKMETA,JSON.stringify({date:dayStr(),where:''}));renderBkStatus();
+  toast('Sauvegarde téléchargée ('+n+' photo(s)/réel(s)) · mots de passe non inclus');
+}
+$('bkSave').onclick=function(){
+  var b=buildBackup(),name='instagram-sauvegarde-'+dayStr()+'.json';
+  getBkFolder(true).then(function(dir){
+    if(!dir){bkDownload(b.blob,name,b.n);return;}
+    return dir.getFileHandle(name,{create:true}).then(function(fh){return fh.createWritable();}).then(function(w){return w.write(b.blob).then(function(){return w.close();});}).then(function(){
+      localStorage.setItem(KEY_BKMETA,JSON.stringify({date:dayStr(),where:dir.name}));renderBkStatus();
+      toast('Sauvegarde enregistrée dans « '+dir.name+' » ('+b.n+' photo(s)/réel(s)) · mots de passe non inclus');
+    });
+  }).catch(function(e){
+    if(e&&e.name==='AbortError'){return;}
+    bkDownload(b.blob,name,b.n);
+  });
 };
+$('bkFolder').onclick=function(){
+  if(!window.showDirectoryPicker){toast('Ce navigateur ne permet pas de choisir un dossier : les sauvegardes iront dans Téléchargements');return;}
+  pickBkFolder().then(function(h){renderBkStatus('Dossier de sauvegarde : « '+h.name+' »');toast('Les sauvegardes iront dans « '+h.name+' »');}).catch(function(){});
+};
+renderBkStatus();
 $('bkRestore').onclick=function(){$('bkFile').click();};
 $('bkFile').addEventListener('change',function(){
   var file=this.files&&this.files[0];this.value='';if(!file)return;
