@@ -288,8 +288,11 @@
               <button class="btn sm ghost" id="addTop" type="button">+ Ligne en haut</button>
               <button class="btn sm ghost" id="addBot" type="button">+ Ligne en bas</button>
               <button class="btn sm" id="exportBtn" type="button">⇩ Exporter en image</button>
+              <button class="btn sm" id="zipBtn" type="button">⇩ Télécharger les images (ZIP)</button>
+              <button class="btn sm" id="shareBtn" type="button">↗ Partager vers mon téléphone</button>
               <button class="btn sm danger" id="clearFeed" type="button">Vider le feed</button>
             </div>
+            <p class="note">Images numérotées dans l'ordre de publication (1 = à publier en premier). Elles sont réduites (720 px) : pour publier, retrouve les originaux avec la liste incluse dans le ZIP.</p>
           </div>
         </div>
 
@@ -1013,6 +1016,60 @@ function exportPng(){
   });
 }
 $('exportBtn').onclick=exportPng;
+
+/* ---- télécharger / partager les images du feed ---- */
+function slug(n){return String(n||'photo').replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,40)||'photo';}
+function pad2(n){return n<10?'0'+n:''+n;}
+function pubItems(){
+  var f=feedOf(fkey()),n=0;
+  return f.cells.slice().reverse().map(function(c){
+    var src=cellSrc(c),p=(c.pid&&PH[c.pid])?PH[c.pid]:null,it={cell:c,src:src,p:p,num:null};
+    if(src){n++;it.num=n;}
+    return it;
+  });
+}
+function pubFileName(it){return pad2(it.num)+(it.p&&it.p.video?'_reel':'')+'_'+slug(it.p?it.p.name:'photo')+'.jpg';}
+function frDate(d){return d?d.split('-').reverse().join('/'):'';}
+function exportZip(){
+  if(typeof JSZip==='undefined'){toast('ZIP indisponible : vérifie ta connexion');return;}
+  var items=pubItems(),f=feedOf(fkey()),handle=f.handle||defHandle();
+  if(!items.some(function(i){return i.src;})){toast('Ce feed ne contient aucune image');return;}
+  var zip=new JSZip(),L=[];
+  L.push('FEED @'+handle+' — '+cur);
+  L.push('Genere le '+frDate(dayStr()));
+  L.push('');
+  L.push('Ordre de publication : 1 = a publier en premier ; la derniere sera tout en haut de la grille.');
+  L.push('Les images du ZIP sont reduites (720 px) : pour publier, utilise les fichiers d\'origine indiques ci-dessous.');
+  L.push('Pour les reels, le ZIP contient seulement une image de couverture : recupere la video d\'origine.');
+  L.push('');
+  items.forEach(function(it){
+    var c=it.cell,p=it.p;
+    if(!it.num&&!c.note)return;
+    if(it.num){zip.file(pubFileName(it),it.src.split(',')[1],{base64:true});}
+    var head=it.num?pad2(it.num)+' · '+(c.type||'Post'):'— · case sans image'+(c.type?' ('+c.type+')':'');
+    L.push(head+(p?' · fichier d\'origine : '+p.name+' · categorie : '+p.cat+' ('+p.model+')':'')+(c.date?' · a publier le '+frDate(c.date):''));
+    if(c.note)L.push('    Legende / note : '+c.note.replace(/\n/g,' '));
+  });
+  zip.file('ordre-de-publication.txt',L.join('\r\n'));
+  zip.generateAsync({type:'blob'}).then(function(b){
+    var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='feed-'+handle.replace(/[^a-z0-9_.-]/gi,'')+'.zip';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(a.href);},3000);
+    toast('ZIP téléchargé');
+  });
+}
+function dataToFile(d,name){
+  var b=atob(d.split(',')[1]),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
+  return new File([u],name,{type:'image/jpeg'});
+}
+function sharePhotos(){
+  var items=pubItems().filter(function(i){return i.src;});
+  if(!items.length){toast('Ce feed ne contient aucune image');return;}
+  if(!navigator.share){toast('Partage indisponible ici : utilise le ZIP');return;}
+  var files=items.map(function(it){return dataToFile(it.src,pubFileName(it));});
+  if(navigator.canShare&&!navigator.canShare({files:files})){toast('Ce navigateur ne peut pas partager ces images : utilise le ZIP');return;}
+  navigator.share({files:files,title:'Feed '+(feedOf(fkey()).handle||defHandle())}).catch(function(){});
+}
+$('zipBtn').onclick=exportZip;$('shareBtn').onclick=sharePhotos;
 
 /* ---- dupliquer un feed ---- */
 var dupMode='style';
