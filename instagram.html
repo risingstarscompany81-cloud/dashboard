@@ -306,7 +306,7 @@
               <button class="btn sm ghost" id="addBot" type="button">+ Ligne en bas</button>
               <button class="btn sm" id="exportBtn" type="button">⇩ Exporter en image</button>
               <button class="btn sm" id="zipBtn" type="button">⇩ Télécharger les images (ZIP)</button>
-              <button class="btn sm" id="shareBtn" type="button">↗ Partager vers mon téléphone</button>
+              <button class="btn sm" id="shareBtn" type="button">↗ Envoyer vers mon téléphone</button>
               <button class="btn sm danger" id="clearFeed" type="button">Vider le feed</button>
             </div>
             <p class="note">Images numérotées dans l'ordre de publication (1 = à publier en premier). Elles sont réduites (720 px) : pour publier, retrouve les originaux avec la liste incluse dans le ZIP.</p>
@@ -1140,13 +1140,17 @@ function dataToFile(d,name){
   var b=atob(d.split(',')[1]),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
   return new File([u],name,{type:'image/jpeg'});
 }
+function shareFallback(why){toast(why+' → je télécharge le ZIP : envoie-le sur ton téléphone (Drive, WhatsApp, AirDrop, mail…)');exportZip();}
 function sharePhotos(){
   var items=pubItems().filter(function(i){return i.src;});
   if(!items.length){toast('Ce feed ne contient aucune image');return;}
-  if(!navigator.share){toast('Partage indisponible ici : utilise le ZIP');return;}
+  if(!navigator.share||!navigator.canShare){shareFallback('Le partage direct n\'existe pas sur ordinateur');return;}
   var files=items.map(function(it){return dataToFile(it.src,pubFileName(it));});
-  if(navigator.canShare&&!navigator.canShare({files:files})){toast('Ce navigateur ne peut pas partager ces images : utilise le ZIP');return;}
-  navigator.share({files:files,title:'Feed '+(feedOf(fkey()).handle||defHandle())}).catch(function(){});
+  if(!navigator.canShare({files:files})){shareFallback('Ce navigateur ne peut pas partager ces images');return;}
+  navigator.share({files:files,title:'Feed '+(feedOf(fkey()).handle||defHandle())}).catch(function(e){
+    if(e&&e.name==='AbortError')return;
+    shareFallback('Le partage a échoué');
+  });
 }
 $('zipBtn').onclick=exportZip;$('shareBtn').onclick=sharePhotos;
 
