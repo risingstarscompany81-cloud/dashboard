@@ -284,6 +284,7 @@
             <div class="btns">
               <button class="btn sm ghost" id="undoBtn" type="button">↶ Annuler</button>
               <button class="btn sm ghost" id="redoBtn" type="button">↷ Rétablir</button>
+              <button class="btn sm ghost" id="dupBtn" type="button">⧉ Dupliquer ce feed…</button>
               <button class="btn sm ghost" id="addTop" type="button">+ Ligne en haut</button>
               <button class="btn sm ghost" id="addBot" type="button">+ Ligne en bas</button>
               <button class="btn sm" id="exportBtn" type="button">⇩ Exporter en image</button>
@@ -343,6 +344,7 @@
           <input type="file" id="fFolder" webkitdirectory multiple style="display:none">
           <input type="file" id="fFiles" accept="image/*,video/*" multiple style="display:none">
           <div class="msg" id="impMsg"></div>
+          <select id="libSrc" style="margin:10px 0 0"></select>
           <div class="chips" id="libCats" style="margin:12px 0 10px"></div>
           <div class="selbar" id="selBar" style="display:none">
             <span>Photo sélectionnée : touche une case pour la placer</span>
@@ -450,7 +452,7 @@
   <h3 id="accModalTitle">Ajouter un compte</h3>
   <label for="acc-name">Nom du compte</label><input id="acc-name" type="text" placeholder="Ex : @moncompte">
   <label for="acc-num">N° (ton numéro du compte)</label><input id="acc-num" type="text" inputmode="numeric" placeholder="Ex : 1">
-  <label for="acc-model">Modèle</label><input id="acc-model" type="text" placeholder="Ex : Luna">
+  <label for="acc-model">Modèle (optionnel)</label><input id="acc-model" type="text" placeholder="Vide = à attribuer plus tard">
   <label for="acc-mail">Adresse mail</label><input id="acc-mail" type="text">
   <label for="acc-phone">Téléphone</label><input id="acc-phone" type="text">
   <label for="acc-pass">Mot de passe du compte</label><input id="acc-pass" type="text" autocomplete="off">
@@ -458,6 +460,14 @@
   <label for="acc-photo">Photo de profil</label><input id="acc-photo" type="file" accept="image/*">
   <label for="acc-notes">Notes</label><input id="acc-notes" type="text" placeholder="Infos, remarques…">
   <div class="mfoot" style="justify-content:flex-end"><button class="btn sm ghost" id="accCancelBtn">Annuler</button><button class="btn sm" id="accSaveBtn">Enregistrer</button></div>
+</div></div>
+<div class="ov" id="dupOv"><div class="modal">
+  <h3>Dupliquer ce feed</h3>
+  <label for="dupTarget">Vers le compte</label><select id="dupTarget"></select>
+  <label>Ce qu'on copie</label>
+  <div class="seg" id="dupMode"><button data-v="style" class="on" type="button">Style seulement</button><button data-v="all" type="button">Tout</button></div>
+  <p class="note" id="dupHelp"></p>
+  <div class="mfoot" style="justify-content:flex-end"><button class="btn sm ghost" id="dupCancel" type="button">Annuler</button><button class="btn sm" id="dupGo" type="button">Dupliquer</button></div>
 </div></div>
 <div id="toast"></div>
 
@@ -467,6 +477,7 @@ var TONES=['#F3EBDD','#E6D5BD','#CDB08C','#A9835C','#8B5E3C','#6B4430','#3B2418'
 var PAL=['#F3EBDD','#E6D5BD','#CDB08C','#A9835C','#8B5E3C','#6B4430','#3B2418','#FFFFFF'];
 var TYPES=['','Post','Réel','Carrousel'];
 var STATUS={actif:'Actif',restriction:'Restriction',desactive:'Désactivé'}, ORDER=['actif','restriction','desactive'];
+var UNASSIGNED='À attribuer';
 var MODEL_LINK={Luna:'luna/index.html',Lucia:'lucia/index.html',Sofia:'sofia/index.html'};
 
 function load(k,d){try{var r=localStorage.getItem(k);return r?JSON.parse(r):d;}catch(e){return d;}}
@@ -484,6 +495,8 @@ var data=load(KEY_DATA,{models:['Luna','Lucia','Sofia'],content:[],plan:[],hl:{}
 if(!data.models)data.models=['Luna','Lucia','Sofia'];
 data.content=data.content||[];data.plan=data.plan||[];data.hl=data.hl||{};
 accounts.forEach(function(a){if(a.model&&data.models.indexOf(a.model)<0)data.models.push(a.model);});
+function mOf(a){return a.model||UNASSIGNED;}
+function allModels(){var l=data.models.slice();if(accounts.some(function(a){return !a.model;}))l.unshift(UNASSIGNED);return l;}
 var curAcc='', cur=data.models[0], tab=(location.hash==='#comptes'?'comptes':'feed'), cFilter='all', editIdx=-1, draft=null;
 
 function saveData(){save(KEY_DATA,data);}
@@ -498,7 +511,7 @@ function showTab(){
   renderAll();
 }
 function renderModels(){
-  var h=data.models.map(function(m){return '<button class="chip'+(m===cur?' on':'')+'" data-m="'+esc(m)+'">'+esc(m)+'</button>';}).join('');
+  var h=allModels().map(function(m){return '<button class="chip'+(m===cur?' on':'')+'" data-m="'+esc(m)+'">'+esc(m)+'</button>';}).join('');
   h+='<button class="chip add" id="addModel">+ Ajouter un modèle</button>';
   $('models').innerHTML=h;
   var ac='';
@@ -519,7 +532,7 @@ $('models').addEventListener('click',function(e){
 $('accChips').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;curAcc=b.getAttribute('data-acc');selPid=null;renderAll();});
 
 /* FEED */
-function modelAccounts(m){return accounts.filter(function(a){return (a.model||'Sans modèle')===m;});}
+function modelAccounts(m){return accounts.filter(function(a){return mOf(a)===m;});}
 function accOf(){var l=modelAccounts(cur);for(var i=0;i<l.length;i++){if(String(l[i].id)===curAcc)return l[i];}return null;}
 function ensureAcc(){if(!accOf()){var l=modelAccounts(cur);curAcc=l.length?String(l[0].id):'';}}
 function fkey(){ensureAcc();return curAcc?'acc:'+curAcc:cur;}
@@ -576,13 +589,13 @@ $('bkFile').addEventListener('change',function(){
 });
 function openFeed(id){
   var a=accounts.filter(function(x){return String(x.id)===String(id);})[0];if(!a)return;
-  var m=a.model||'Sans modèle';if(data.models.indexOf(m)<0)data.models.push(m);
+  var m=a.model||UNASSIGNED;if(m!==UNASSIGNED&&data.models.indexOf(m)<0)data.models.push(m);
   cur=m;curAcc=String(a.id);tab='feed';showTab();window.scrollTo(0,0);
 }
 data.ui=data.ui||{theme:'light',ratio:'133.33%'};
 var ui=data.ui;
 var EMPTY='#F3EBDD';
-var PH={}, db=null, dbOk=false, selPid=null, libCat='all', hist={};
+var PH={}, db=null, dbOk=false, selPid=null, libCat='all', hist={}, libSrc='cur', libFor='';
 
 /* ---- photos : IndexedDB ---- */
 function idbOpen(cb){
@@ -744,30 +757,38 @@ function renderFeed(){
 }
 
 /* ---- bibliothèque ---- */
+function catKeyOf(p){return libSrc==='all'?p.model+' › '+p.cat:p.cat;}
 function modelPhotos(){
-  return Object.keys(PH).map(function(k){return PH[k];}).filter(function(p){return p.model===cur;})
+  var src=libSrc==='cur'?cur:libSrc;
+  return Object.keys(PH).map(function(k){return PH[k];}).filter(function(p){return src==='all'||p.model===src;})
     .sort(function(a,b){return a.cat<b.cat?-1:a.cat>b.cat?1:(a.name<b.name?-1:1);});
 }
 function renderLib(){
+  if(libFor!==cur){libFor=cur;libSrc=(cur===UNASSIGNED?'all':'cur');libCat='all';}
+  var ms={};data.models.forEach(function(m){ms[m]=1;});Object.keys(PH).forEach(function(k){ms[PH[k].model]=1;});delete ms[cur];
+  $('libSrc').innerHTML='<option value="cur">'+esc(cur)+(cur===UNASSIGNED?' (ce groupe)':' (ce modèle)')+'</option><option value="all">Tous les modèles</option>'+Object.keys(ms).map(function(m){return '<option value="'+esc(m)+'">'+esc(m)+'</option>';}).join('');
+  $('libSrc').value=libSrc;
   var ps=modelPhotos(),cats={};
-  ps.forEach(function(p){cats[p.cat]=(cats[p.cat]||0)+1;});
+  ps.forEach(function(p){var k=catKeyOf(p);cats[k]=(cats[k]||0)+1;});
   var names=Object.keys(cats);
   if(libCat!=='all'&&!cats[libCat])libCat='all';
   $('libCats').innerHTML='<button class="chip'+(libCat==='all'?' on':'')+'" data-cat="all" type="button">Toutes · '+ps.length+'</button>'+
     names.map(function(n){return '<button class="chip'+(libCat===n?' on':'')+'" data-cat="'+esc(n)+'" type="button">'+esc(n)+' · '+cats[n]+'</button>';}).join('');
   var used={};feedOf(fkey()).cells.forEach(function(c){if(c.pid)used[c.pid]=1;});
-  var shown=ps.filter(function(p){return libCat==='all'||p.cat===libCat;});
+  var shown=ps.filter(function(p){return libCat==='all'||catKeyOf(p)===libCat;});
   $('libGrid').innerHTML=shown.length?shown.map(function(p){
     return '<div class="th'+(selPid===p.id?' sel':'')+'" draggable="true" data-pid="'+p.id+'" title="'+esc(p.name)+'"><img src="'+p.data+'" alt="" draggable="false">'+(used[p.id]?'<span class="used">✓</span>':'')+(p.video?'<span class="vid">▶ '+fmtDur(p.dur||0)+'</span>':'')+'</div>';
   }).join(''):'<div class="empty" style="grid-column:1/-1">Importe un dossier pour retrouver tes photos et réels ici.</div>';
   $('selBar').style.display=selPid&&PH[selPid]?'block':'none';
 }
+$('libSrc').addEventListener('change',function(){libSrc=this.value;libCat='all';renderLib();});
 $('libCats').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;libCat=b.getAttribute('data-cat');renderLib();});
 $('libCats').addEventListener('dragover',function(e){if(e.target.closest('button'))e.preventDefault();});
 $('libCats').addEventListener('drop',function(e){
   var b=e.target.closest('button');if(!b)return;e.preventDefault();
   var t=''; try{t=e.dataTransfer.getData('text');}catch(x){}
   if(t.indexOf('photo:')!==0||b.getAttribute('data-cat')==='all')return;
+  if(libSrc==='all'){toast('Choisis un seul modèle dans la liste pour ranger les photos');return;}
   var p=PH[t.slice(6)];if(!p)return;p.cat=b.getAttribute('data-cat');idbPut(p);renderLib();
 });
 $('libGrid').addEventListener('click',function(e){
@@ -993,22 +1014,62 @@ function exportPng(){
 }
 $('exportBtn').onclick=exportPng;
 
+/* ---- dupliquer un feed ---- */
+var dupMode='style';
+function dupHelp(){
+  $('dupHelp').textContent=dupMode==='style'?'Copie la structure de la grille : couleurs, motif et icônes Réel / Carrousel. Sans photos, notes ni dates.':'Copie aussi les photos, réels et notes. Les dates (planning) ne sont pas copiées.';
+  var bs=$('dupMode').children;for(var i=0;i<bs.length;i++)bs[i].className=bs[i].getAttribute('data-v')===dupMode?'on':'';
+}
+$('dupBtn').onclick=function(){
+  var others=accounts.filter(function(a){return String(a.id)!==curAcc;});
+  if(!curAcc||!others.length){toast('Crée d\'abord un autre compte pour y dupliquer ce feed');return;}
+  var groups={};others.forEach(function(a){(groups[mOf(a)]=groups[mOf(a)]||[]).push(a);});
+  $('dupTarget').innerHTML=Object.keys(groups).map(function(m){return '<optgroup label="'+esc(m)+'">'+groups[m].map(function(a){return '<option value="'+esc(a.id)+'">'+esc(accLabel(a))+'</option>';}).join('')+'</optgroup>';}).join('');
+  dupMode='style';dupHelp();$('dupOv').className='ov show';
+};
+$('dupMode').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;dupMode=b.getAttribute('data-v');dupHelp();});
+$('dupCancel').onclick=function(){$('dupOv').className='ov';};
+$('dupOv').addEventListener('click',function(e){if(e.target===this)$('dupOv').className='ov';});
+$('dupGo').onclick=function(){
+  var src=feedOf(fkey()),tid=$('dupTarget').value;if(!tid)return;
+  var tf=feedOf('acc:'+tid);
+  if(tf.cells.some(function(c){return c.pid||c.img||c.note;})&&!confirm('Ce feed contient déjà du contenu : le remplacer ?'))return;
+  tf.cells=src.cells.map(function(c){
+    var n=newCell();n.c=c.c;n.type=c.type;
+    if(dupMode==='all'){n.pid=c.pid;n.img=c.img;n.note=c.note;}
+    return n;
+  });
+  saveFeed();$('dupOv').className='ov';
+  var a=accounts.filter(function(x){return String(x.id)===String(tid);})[0];
+  toast('Feed dupliqué vers '+(a?accLabel(a):'le compte'));
+};
+
 /* COMPTES */
-function modelOf(a){return a.model||'Sans modèle';}
+function modelOf(a){return mOf(a);}
 function renderAcc(){
-  var names=data.models.slice();accounts.forEach(function(a){if(names.indexOf(modelOf(a))<0)names.push(modelOf(a));});
+  var names=allModels();accounts.forEach(function(a){if(names.indexOf(modelOf(a))<0)names.push(modelOf(a));});
   $('accGrid').innerHTML=names.map(function(m){
     var l=accounts.filter(function(a){return modelOf(a)===m;});
     var n={actif:0,restriction:0,desactive:0};l.forEach(function(a){if(n[a.status]!=null)n[a.status]++;});
     return '<div class="card"><div class="mhead"><b>'+esc(m)+'</b><span class="counts">'+n.actif+' actif'+(n.actif>1?'s':'')+' · '+n.restriction+' restr. · '+n.desactive+' désact.</span></div>'+
+      (m===UNASSIGNED?'<p class="note" style="margin:-4px 0 6px">Comptes préparés à l\'avance : prépare leur feed, puis attribue-les à un modèle.</p>':'')+
       (l.length?l.map(function(a){var s=STATUS[a.status]?a.status:'actif';
         var nm=String(a.name||'').replace(/^@/,'');
         function feedRow(a){var f=feed['acc:'+a.id],n=f?f.cells.filter(function(c){return c.pid||c.img;}).length:0;return '<div class="cp"><i>Feed</i><span>'+(n?n+' photo'+(n>1?'s':'')+' placée'+(n>1?'s':''):'Pas encore créé')+'</span><button class="cb" data-feed="'+esc(a.id)+'" type="button">ouvrir ›</button></div>';}
+        function assignRow(a){return a.model?'':'<div class="cp"><i>Modèle</i><span>À attribuer</span><button class="cb" data-assign="'+esc(a.id)+'" type="button">attribuer ›</button></div>';}
         function cpy(lab,val,masked){return val?'<div class="cp"><i>'+lab+'</i><span>'+(masked?'••••••••':esc(val))+'</span><button class="cb" data-copy="'+esc(val)+'">copier</button></div>':'';}
         return '<div class="arow"><div class="top"><span class="nm">'+(a.num?'<b>'+esc(String(a.num))+'</b>':'')+esc(a.name||'(sans nom)')+'</span><button class="cb" data-copy="'+esc(nm)+'">copier</button><button class="st" data-id="'+esc(a.id)+'"><span class="dot '+s+'"></span>'+STATUS[s]+'</button></div>'+
-          cpy('Mail',a.mail,false)+cpy('Mdp',a.pass,true)+cpy('Mdp mail',a.mailpass,true)+feedRow(a)+'</div>';}).join(''):'<div class="empty">Aucun compte</div>')+
+          cpy('Mail',a.mail,false)+cpy('Mdp',a.pass,true)+cpy('Mdp mail',a.mailpass,true)+assignRow(a)+feedRow(a)+'</div>';}).join(''):'<div class="empty">Aucun compte</div>')+
     '</div>';
   }).join('');
+}
+function assignAccount(id){
+  var a=accounts.filter(function(x){return String(x.id)===String(id);})[0];if(!a)return;
+  var n=prompt('Attribuer ce compte à quel modèle ?\n('+data.models.join(' / ')+' ou un nouveau nom)',data.models[0]||'');
+  if(!n)return;n=n.trim();if(!n)return;
+  var ex=data.models.filter(function(m){return m.toLowerCase()===n.toLowerCase();})[0];
+  if(ex)n=ex;else data.models.push(n);
+  a.model=n;save(KEY_ACC,accounts);saveData();renderAccounts();toast('Compte attribué à '+n);
 }
 function copyText(txt,btn){
   function ok(){var o=btn.textContent;btn.textContent='copié ✓';setTimeout(function(){btn.textContent=o;},1200);}
@@ -1016,6 +1077,7 @@ function copyText(txt,btn){
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(ok,fb);}else{fb();}
 }
 $('accGrid').addEventListener('click',function(e){
+  var as2=e.target.closest('[data-assign]');if(as2){assignAccount(as2.getAttribute('data-assign'));return;}
   var fb2=e.target.closest('[data-feed]');if(fb2){openFeed(fb2.getAttribute('data-feed'));return;}
   var cb=e.target.closest('.cb');if(cb){copyText(cb.getAttribute('data-copy'),cb);return;}
   var b=e.target.closest('.st');if(!b)return;var id=b.getAttribute('data-id');
@@ -1100,7 +1162,7 @@ function syncModels(){accounts.forEach(function(a){if(a.model&&data.models.index
 function renderAccountSummary(){
   var box=$('accountSummary');
   if(!accounts.length){box.innerHTML='<div class="empty" style="padding:6px 0;text-align:left">Aucun compte pour l\'instant : importe ton Excel ou ajoute-en un.</div>';return;}
-  var by={};accounts.forEach(function(a){var m=a.model||'Sans modèle';by[m]=(by[m]||0)+1;});
+  var by={};accounts.forEach(function(a){var m=a.model||UNASSIGNED;by[m]=(by[m]||0)+1;});
   var act=accounts.filter(function(a){return a.status==='actif';}).length;
   var rest=accounts.filter(function(a){return a.status==='restriction';}).length;
   var off=accounts.filter(function(a){return a.status==='desactive';}).length;
@@ -1135,7 +1197,7 @@ $('accountList').addEventListener('click',function(e){
   else if(rm){if(!confirm('Supprimer ce compte ?'))return;accounts=accounts.filter(function(x){return String(x.id)!==rm;});save(KEY_ACC,accounts);renderAccounts();}
 });
 function fillAcc(a){
-  $('acc-name').value=a?a.name:'';$('acc-notes').value=a&&a.notes||'';$('acc-model').value=a?(a.model||''):(cur||'');
+  $('acc-name').value=a?a.name:'';$('acc-notes').value=a&&a.notes||'';$('acc-model').value=a?(a.model||''):'';
   $('acc-num').value=a&&a.num||'';$('acc-mail').value=a&&a.mail||'';$('acc-phone').value=a&&a.phone||'';$('acc-pass').value=a&&a.pass||'';$('acc-mailpass').value=a&&a.mailpass||'';$('acc-photo').value='';
   $('accOv').className='ov show';$('acc-name').focus();
 }
@@ -1402,6 +1464,7 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
 
 
 function renderAll(){
+  if(allModels().indexOf(cur)<0)cur=data.models[0]||UNASSIGNED;
   renderModels();
   if(tab==='feed'){fillTools();renderFeed();}
   if(tab==='comptes')renderAccounts();
@@ -1411,7 +1474,7 @@ function renderAll(){
 }
 (function(){var mh=/^#feed=(.+)$/.exec(location.hash);if(!mh)return;var id=decodeURIComponent(mh[1]);
   var a=accounts.filter(function(x){return String(x.id)===id;})[0];if(!a)return;
-  var m=a.model||'Sans modèle';if(data.models.indexOf(m)<0)data.models.push(m);cur=m;curAcc=String(a.id);tab='feed';})();
+  var m=a.model||UNASSIGNED;if(m!==UNASSIGNED&&data.models.indexOf(m)<0)data.models.push(m);cur=m;curAcc=String(a.id);tab='feed';})();
 renderInsp();showTab();
 idbOpen(function(){idbLoad(function(){migrateLegacy();cleanupModelFeeds();renderAll();});});
 </script>
