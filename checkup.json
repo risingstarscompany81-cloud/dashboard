@@ -1,28 +1,30 @@
 {
-  "date": "2026-10-21",
-  "rev": 4,
+  "date": "2026-10-22",
+  "rev": 5,
   "done": [
-    "Contrôle de 14h15 fait : 0★ à 14h15 (0/32 offres, 21 nouvelles conv.), hier 4 633★ ≈ 60,2 $ (6/76 offres) → 46 % du Seuil, aucun palier",
-    "Luna : 0 vente sur 23 offres aujourd'hui ; Persona vérifiée (texte Rapide + anti-double bonjour OK). Hier 5 ventes, dernière : David Cueto 993★",
-    "Sofia : hier 1 vente (Pedro Castañeda 1 058★), 9 nouvelles conv. aujourd'hui (2 hier à la même heure)",
-    "Bots connectés, IA activée, qualité d'envoi 100 % ; portefeuille 33,52 $ (~6 jours) ; médias : rien de nouveau (4 vocaux connus)",
-    "Notes IA : Portu (Luna) créée ; David Cueto (Luna) et Pedro Castañeda Villegas (Sofia) complétées",
-    "Pubs de Luna précisées : Espagne 10 $/jour + France 5 $/jour → fans francophones attendus, alerte « ciblage » annulée",
-    "Page Instagram du dashboard : un feed par compte, import de reels, sauvegarde/restauration en un fichier, ZIP du feed, sélecteur d'emojis, mode consultation téléphone"
+    "Contrôle de 14h15 fait : 635★ ≈ 8,3 $ à 14h30 (1/40 offres, 24 nouvelles conv.) → 6 % du Seuil ; hier 4 968★ ≈ 64,6 $ (6/70 offres) → 50 % du Seuil, aucun palier",
+    "Luna : 0 vente sur 29 offres aujourd'hui (alerte). Hier 4 ventes = un seul fan hispanophone (Meteomollet, 3 116★), dernière à 19h43. Fans FR : 0 achat les 21-22/10",
+    "Sofia : 1 vente aujourd'hui (&&& @jsad3 635★, 12h57), hier 2 ventes (1 852★) ; Lucia : toujours aucune activité",
+    "Bots connectés, IA activée, qualité d'envoi 100 % ; portefeuille 18,95 $ (~3 jours, −14,6 $ de frais de vente 20 %)",
+    "Médias : rien de nouveau (vocaux connus), 0 média en échec ; vidéos illisibles : aucun cas réel",
+    "Notes IA créées : David @Meteomollet (Luna), David Cueto (Sofia), &&& @jsad3 (Sofia)",
+    "Page Instagram du dashboard : import des comptes sans profil IG en « À créer » (sans doublon) et vidéos ré-importées rattachées aux reels existants"
   ],
   "todo": [
-    "Luna : comparer chaque jour la conversion des fans FR et ES (0 achat sur ~12 conv. FR le 21/10, ils refusent de payer en étoiles)",
-    "Luna : suivre le taux d'achat ; quand stable 2-3 jours, proposer le test PPV2 « Retour des cours » 828★ → 662★",
-    "Sofia : note d'Airam Hernandez mentionne les pieds — à revoir si nouvel achat ; fan anglophone à surveiller",
+    "Luna : surveiller les ventes du soir (hier 0 à 14h puis 4 ventes entre 17h et 20h) et comparer chaque jour les fans FR et ES",
+    "Luna : quand stable 2-3 jours, proposer le test PPV2 « Retour des cours » 828★ → 662★ (pas encore, Luna pas stable)",
+    "Sofia : fan anglophone à surveiller (l'IA répond en anglais) ; 2 fans brésiliens reçoivent des réponses en espagnol",
+    "Sofia : note d'Airam Hernandez mentionne les pieds — à revoir si nouvel achat",
     "Sofia/Javi : le texte de l'offre annonçait 794★ mais le prix affiché était 1323★ — vérifier le script",
+    "Offres floutées 662★/794★ : un fan (Kerman) dit ne pas voir — faux positif probable, à garder à l'œil",
     "Reprise manuelle (scripts épuisés) : Luna 7 (dont Carlos Álvarez, acheteur), Sofia 2, Lucia 10",
     "Lucia : aucune vente ni activité depuis le 11/10 (pub désactivée) — voir pourquoi",
+    "Lucia : retenter le transfert du bot quand le délai de ~21 jours est passé",
     "Vérifier l'import Telestars du dossier SPA, puis les 23 autres un par un",
     "Ré-importer COMPTES IG PROXY.xlsx une fois et remettre les photos de profil",
     "Confirmer que le dossier NOTES enregistre bien les fichiers .md",
     "Abonnement Telegram de Sofia (5,49 €) du 18 : saisie faite ?",
     "Pubs : BM sauté, compte pub de Lucia désactivé, pub Mexique de Luna coupée — stabiliser les pubs",
-    "Lucia : retenter le transfert du bot quand le délai de ~21 jours est passé",
     "Demain 14h15 : contrôle des ventes (seuil 130 $) + médias"
   ],
   "pause": [
