@@ -727,7 +727,10 @@ function idbDel(id){
   try{db.transaction('vids','readwrite').objectStore('vids')['delete'](id);}catch(e){}
 }
 /* vidéos d'origine (réels entiers) : stockées à part, jamais dans la sauvegarde */
-function vidPut(id,file){if(!dbOk)return;try{db.transaction('vids','readwrite').objectStore('vids').put(file,id);}catch(e){}}
+function vidPut(id,file,cb){
+  if(!dbOk){cb&&cb(false);return;}
+  try{var t=db.transaction('vids','readwrite');t.objectStore('vids').put(file,id);t.oncomplete=function(){cb&&cb(true);};t.onerror=function(){cb&&cb(false);};t.onabort=function(){cb&&cb(false);};}catch(e){cb&&cb(false);}
+}
 function vidGet(id,cb){
   if(!dbOk){cb(null);return;}
   try{var q=db.transaction('vids','readonly').objectStore('vids').get(id);q.onsuccess=function(){cb(q.result||null);};q.onerror=function(){cb(null);};}catch(e){cb(null);}
@@ -775,17 +778,21 @@ function importFiles(list,model,catOf){
   if(!arr.length){$('impMsg').textContent='Aucune photo ni vidéo trouvée dans ce choix.';return;}
   if(!dbOk)toast('Stockage indisponible : les photos seront perdues à la fermeture');
   var i=0,added=0,skipped=0,failed=0,nVid=0,have={};
-  Object.keys(PH).forEach(function(k){have[PH[k].key]=PH[k].id;});
+  var haveNS={};Object.keys(PH).forEach(function(k){have[PH[k].key]=PH[k].id;if(PH[k].video){var q=PH[k].key;haveNS[q.slice(q.indexOf('|')+1)]=PH[k].id;}});
+  var nStored=0,nVidFail=0;
   function next(){
     if(i>=arr.length){
-      $('impMsg').textContent='✓ '+added+' fichier(s) importé(s)'+(nVid?' dont '+nVid+' vidéo(s)':'')+(skipped?' · '+skipped+' déjà présente(s)':'')+(failed?' · '+failed+' illisible(s)':'')+'.';
+      $('impMsg').textContent='✓ '+added+' fichier(s) importé(s)'+(nVid?' dont '+nVid+' vidéo(s)':'')+(nStored?' · '+nStored+' vidéo(s) entière(s) conservée(s)':'')+(nVidFail?' · ⚠ '+nVidFail+' vidéo(s) entière(s) NON conservée(s) (stockage du navigateur indisponible ou plein)':'')+(skipped?' · '+skipped+' déjà présente(s)':'')+(failed?' · '+failed+' illisible(s)':'')+'.';
       renderLib();renderFeed();return;
     }
     var f=arr[i++],cat=catOf(f),key=cat+'|'+f.name+'|'+f.size;
     $('impMsg').textContent='Import '+i+' / '+arr.length+'…';
-    if(have[key]){skipped++;if(isVideoFile(f))vidPut(have[key],f);setTimeout(next,0);return;}
+    var ns=f.name+'|'+f.size,exId=have[key]||(isVideoFile(f)?haveNS[ns]:null);
+    if(exId){skipped++;if(isVideoFile(f)){vidPut(exId,f,function(ok){if(ok)nStored++;else nVidFail++;setTimeout(next,0);});}else{setTimeout(next,0);}return;}
     makeThumb(f,720,function(d,dur,vid){
-      if(d){var rec={id:uid(),model:model,cat:cat,key:key,name:f.name,data:d};have[key]=rec.id;if(vid){rec.video=true;rec.dur=dur;}idbPut(rec);if(vid)vidPut(rec.id,f);added++;nVid+=vid?1:0;}else{failed++;}
+      if(d){var rec={id:uid(),model:model,cat:cat,key:key,name:f.name,data:d};have[key]=rec.id;if(vid){rec.video=true;rec.dur=dur;haveNS[ns]=rec.id;}idbPut(rec);added++;nVid+=vid?1:0;
+        if(vid){vidPut(rec.id,f,function(ok){if(ok)nStored++;else nVidFail++;setTimeout(next,0);});return;}
+      }else{failed++;}
       setTimeout(next,0);
     });
   }
@@ -1150,6 +1157,7 @@ function exportZip(){
     zip.generateAsync({type:'blob',compression:'STORE'}).then(function(b){
       var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='feed-'+handle.replace(/[^a-z0-9_.-]/gi,'')+'.zip';
       document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(a.href);},60000);
+      if(missing)setTimeout(function(){alert(missing+' réel(s) du feed n\'ont PAS leur vidéo entière dans le ZIP (seulement la couverture).\n\nPour les ajouter : « Ajouter photos / réels » ou « Importer un dossier » avec les vidéos d\'origine depuis ton ordinateur, puis refais le ZIP.');},300);
       toast('ZIP téléchargé'+(nV?' · '+nV+' vidéo(s) incluse(s)':'')+(missing?' · '+missing+' réel(s) sans vidéo d\'origine : ré-importe-les depuis ton dossier':''));
     });
   }
