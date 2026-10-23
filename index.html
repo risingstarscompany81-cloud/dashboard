@@ -325,7 +325,7 @@
   }
   .status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;cursor:pointer;}
   .status-dot.actif{background:#0F7B6C;}
-  .status-dot.restriction{background:#D9730D;}
+  .status-dot.restriction{background:#D9730D;} .status-dot.appel{background:#E8833A;}
   .status-dot.desactive{background:#E03E3E;}
   .sub-meta{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--text-faint);}
   .pay-history{padding-left:34px;margin-top:4px;}
@@ -1134,8 +1134,8 @@ document.getElementById('wsTabCheckups').addEventListener('click', () => showWsT
 function checkupInit(){ ckLoad(); ckRollover(); ckSave(); renderCkArchive(); ckFetchIncoming(); }
 
 /* ===================== Suivi des comptes Insta ===================== */
-const ACCOUNT_STATUSES = ['actif', 'restriction', 'desactive'];
-const ACCOUNT_STATUS_LABELS = { actif: 'Actif', restriction: 'Restriction', desactive: 'Désactivé' };
+const ACCOUNT_STATUSES = ['actif', 'appel', 'restriction', 'desactive'];
+const ACCOUNT_STATUS_LABELS = { actif: 'Actif', appel: 'Appel', restriction: 'Restriction', desactive: 'Désactivé' };
 
 /* ===================== Abonnements ===================== */
 let editingSubId = null;

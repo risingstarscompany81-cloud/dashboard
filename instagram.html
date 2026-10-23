@@ -165,7 +165,7 @@
   .acc .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .st{border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 11px 3px 9px;font:inherit;font-size:12px;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
   .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
-  .dot.actif{background:var(--ok);} .dot.restriction{background:var(--warn);} .dot.desactive{background:var(--bad);}
+  .dot.actif{background:var(--ok);} .dot.restriction{background:var(--warn);} .dot.desactive{background:var(--bad);} .dot.appel{background:#E8833A;}
   a.lnk{color:var(--brown);text-decoration:none;font-size:13px;}
   a.lnk:hover{text-decoration:underline;}
 
@@ -186,7 +186,7 @@
   .anote{font-size:11.5px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .acts{display:flex;align-items:center;gap:8px;flex-shrink:0;}
   .sdot{width:10px;height:10px;border-radius:50%;cursor:pointer;}
-  .sdot.actif{background:var(--ok);} .sdot.restriction{background:var(--warn);} .sdot.desactive{background:var(--bad);}
+  .sdot.actif{background:var(--ok);} .sdot.restriction{background:var(--warn);} .sdot.desactive{background:var(--bad);} .sdot.appel{background:#E8833A;}
   .slab{font-size:11px;color:var(--faint);}
   .ib{border:0;background:none;color:var(--faint);cursor:pointer;font-size:14px;padding:2px 4px;}
   .ib:hover{color:var(--ink);}
@@ -579,7 +579,7 @@ var KEY_ACC='dashboard-accounts-v1', KEY_FEED='dashboard-ig-feed-v1', KEY_DATA='
 var TONES=['#F3EBDD','#E6D5BD','#CDB08C','#A9835C','#8B5E3C','#6B4430','#3B2418'];
 var PAL=['#F3EBDD','#E6D5BD','#CDB08C','#A9835C','#8B5E3C','#6B4430','#3B2418','#FFFFFF'];
 var TYPES=['','Post','Réel','Carrousel'];
-var STATUS={actif:'Actif',restriction:'Restriction',desactive:'Désactivé'}, ORDER=['actif','restriction','desactive'];
+var STATUS={actif:'Actif',appel:'Appel',restriction:'Restriction',desactive:'Désactivé'}, ORDER=['actif','appel','restriction','desactive'];
 var UNASSIGNED='À attribuer';
 var MODEL_LINK={Luna:'luna/index.html',Lucia:'lucia/index.html',Sofia:'sofia/index.html'};
 
@@ -1361,8 +1361,8 @@ function renderAcc(){
   var names=allModels();accounts.forEach(function(a){if(names.indexOf(modelOf(a))<0)names.push(modelOf(a));});
   $('accGrid').innerHTML=names.map(function(m){
     var l=accounts.filter(function(a){return modelOf(a)===m;});
-    var n={actif:0,restriction:0,desactive:0};l.forEach(function(a){if(n[a.status]!=null)n[a.status]++;});
-    return '<div class="card"><div class="mhead"><b>'+esc(m)+'</b><span class="counts">'+n.actif+' actif'+(n.actif>1?'s':'')+' · '+n.restriction+' restr. · '+n.desactive+' désact.</span></div>'+
+    var n={actif:0,appel:0,restriction:0,desactive:0};l.forEach(function(a){if(n[a.status]!=null)n[a.status]++;});
+    return '<div class="card"><div class="mhead"><b>'+esc(m)+'</b><span class="counts">'+n.actif+' actif'+(n.actif>1?'s':'')+' · '+(n.appel?n.appel+' appel · ':'')+n.restriction+' restr. · '+n.desactive+' désact.</span></div>'+
       (m===UNASSIGNED?'<p class="note" style="margin:-4px 0 6px">Comptes préparés à l\'avance : prépare leur feed, puis attribue-les à un modèle.</p>':'')+
       (l.length?l.map(function(a){var s=STATUS[a.status]?a.status:'actif';
         var nm=String(a.name||'').replace(/^@/,'');
@@ -1679,8 +1679,8 @@ $('hlBig').addEventListener('click',function(e){var b=e.target.closest('.x');if(
 
 
 /* ===================== Suivi des comptes ===================== */
-var ACCOUNT_STATUSES=['actif','restriction','desactive'];
-var ACCOUNT_STATUS_LABELS={actif:'Actif',restriction:'Restriction',desactive:'Désactivé'};
+var ACCOUNT_STATUSES=['actif','appel','restriction','desactive'];
+var ACCOUNT_STATUS_LABELS={actif:'Actif',appel:'Appel',restriction:'Restriction',desactive:'Désactivé'};
 var editingAccountId=null;
 async function storageSet(k,v){save(k,v);}
 function syncModels(){accounts.forEach(function(a){if(a.model&&data.models.indexOf(a.model)<0)data.models.push(a.model);});saveData();}
@@ -1692,7 +1692,7 @@ function renderAccountSummary(){
   var act=accounts.filter(function(a){return a.status==='actif';}).length;
   var rest=accounts.filter(function(a){return a.status==='restriction';}).length;
   var off=accounts.filter(function(a){return a.status==='desactive';}).length;
-  box.innerHTML='<div class="sumline"><b>'+accounts.length+'</b> comptes · '+act+' actifs'+(rest?' · '+rest+' en restriction':'')+(off?' · '+off+' désactivés':'')+'</div>'+
+  box.innerHTML='<div class="sumline"><b>'+accounts.length+'</b> comptes · '+act+' actifs'+(rest?' · '+rest+' en restriction':'')+(accounts.filter(function(a){return a.status==='appel';}).length?' · '+accounts.filter(function(a){return a.status==='appel';}).length+' en appel':'')+(off?' · '+off+' désactivés':'')+'</div>'+
     '<div class="pills">'+Object.keys(by).map(function(m){return '<span>'+esc(m)+' · '+by[m]+'</span>';}).join('')+'</div>'+
     '<a href="comptes.html" class="btn sm ghost" style="text-decoration:none;display:inline-block">Voir tous les comptes →</a>';
 }
@@ -1957,10 +1957,12 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
           if(!realProfile && !proxyName) continue;
           const todo = !realProfile;   // proxy créé mais compte Instagram pas encore créé : on le garde « à créer »
           const profile = realProfile || proxyName;
-          const isOff = cStatus >= 0 && /^DESACTIV/.test(norm(rows[r][cStatus]));   // colonne STATUT = « Désactivé »
+          const stX = cStatus >= 0 ? norm(rows[r][cStatus]) : '';
+          const isAppel = /^APPEL/.test(stX), isActifX = /^ACTIF/.test(stX);
+          const isOff = /^DESACTIV/.test(stX);   // colonne STATUT = « Désactivé »
           if(isOff || reds.has(r + rowOffset + 1)){ skippedRed.push(profile); continue; }
           const mNum = cProxy >= 0 ? clean(rows[r][cProxy]).match(/^(\d+)/) : null;
-          found.push({ name: profile, num: mNum ? mNum[1] : '', model: modelLabel, mail: clean(rows[r][cMail]), phone: clean(rows[r][cPhone]), pass: cPass >= 0 ? clean(rows[r][cPass]) : '', mailpass: cMailPass >= 0 ? clean(rows[r][cMailPass]) : '', photo: photoAt(r + rowOffset + 1), todo: todo });
+          found.push({ name: profile, num: mNum ? mNum[1] : '', model: modelLabel, mail: clean(rows[r][cMail]), phone: clean(rows[r][cPhone]), pass: cPass >= 0 ? clean(rows[r][cPass]) : '', mailpass: cMailPass >= 0 ? clean(rows[r][cMailPass]) : '', photo: photoAt(r + rowOffset + 1), todo: todo, appel: isAppel, actifX: isActifX });
         }
       });
       if(!found.length){
@@ -1977,8 +1979,8 @@ document.getElementById('accFileInput').addEventListener('change', (e) => {
         let ex = accounts.find(a => a.name.trim().toLowerCase() === f.name.toLowerCase());
         // le profil vient d'être renseigné dans l'Excel : on retrouve le compte « à créer » (même numéro, même modèle)
         if(!ex && !f.todo && f.num) ex = accounts.find(a => a.todo && String(a.num) === String(f.num) && String(a.model || '').toLowerCase() === String(f.model).toLowerCase());
-        if(ex){ ex.name = f.name; if(f.todo) ex.todo = true; else delete ex.todo; ex.num = f.num || ex.num || ''; ex.model = f.model; ex.mail = f.mail; ex.phone = f.phone; if(f.pass){ ex.pass = f.pass; nPass++; } if(f.mailpass) ex.mailpass = f.mailpass; if(f.photo){ ex.photo = f.photo; photos++; } updated++; }
-        else { accounts.push({ id: uid(), todo: f.todo || undefined, name: f.name, num: f.num, notes: '', model: f.model, mail: f.mail, phone: f.phone, pass: f.pass || '', mailpass: f.mailpass || '', photo: f.photo || null, status: 'actif' }); if(f.pass) nPass++; added++; if(f.photo) photos++; }
+        if(ex){ ex.name = f.name; if(f.todo) ex.todo = true; else delete ex.todo; ex.num = f.num || ex.num || ''; ex.model = f.model; ex.mail = f.mail; ex.phone = f.phone; if(f.pass){ ex.pass = f.pass; nPass++; } if(f.mailpass) ex.mailpass = f.mailpass; if(f.photo){ ex.photo = f.photo; photos++; } if(f.appel) ex.status = 'appel'; else if(f.actifX && ex.status === 'appel') ex.status = 'actif'; updated++; }
+        else { accounts.push({ id: uid(), todo: f.todo || undefined, name: f.name, num: f.num, notes: '', model: f.model, mail: f.mail, phone: f.phone, pass: f.pass || '', mailpass: f.mailpass || '', photo: f.photo || null, status: f.appel ? 'appel' : 'actif' }); if(f.pass) nPass++; added++; if(f.photo) photos++; }
       });
       await storageSet(KEY_ACC, accounts);
       renderAccounts();

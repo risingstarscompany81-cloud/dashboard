@@ -72,7 +72,7 @@
   .st-pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 11px 3px 9px;font-size:12px;background:#fff;cursor:pointer;font-family:inherit;color:var(--ink);}
   .st-pill:hover{border-color:var(--taupe);}
   .dot{width:8px;height:8px;border-radius:50%;}
-  .dot.actif{background:var(--ok);} .dot.restriction{background:var(--warn);} .dot.desactive{background:var(--danger);}
+  .dot.actif{background:var(--ok);} .dot.restriction{background:var(--warn);} .dot.desactive{background:var(--danger);} .dot.appel{background:#E8833A;}
   .copy{display:flex;align-items:center;gap:8px;min-width:0;font-size:13px;color:var(--muted);}
   .copy span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .cbtn{border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--muted);font-size:11.5px;padding:2px 9px;border-radius:999px;font-family:'Inter',sans-serif;flex-shrink:0;}
@@ -111,8 +111,8 @@
 </div>
 <script>
 const ACCOUNTS_KEY = 'dashboard-accounts-v1';
-const STATUS = { actif:'Actif', restriction:'Restriction', desactive:'Désactivé' };
-const ORDER = ['actif','restriction','desactive'];
+const STATUS = { actif:'Actif', appel:'Appel', restriction:'Restriction', desactive:'Désactivé' };
+const ORDER = ['actif','appel','restriction','desactive'];
 const COLORS = ['blue','violet','orange','green'];
 const HEX = { blue:'#8FB4F5', violet:'#B7A0F3', orange:'#F5B681', green:'#86D4B2' };
 const DEMO = [];
