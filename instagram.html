@@ -279,8 +279,14 @@
   .libgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:60vh;overflow:auto;}
   .th{position:relative;padding-top:125%;background:var(--sand);border-radius:6px;overflow:hidden;cursor:grab;}
   .th img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;}
-  .th.sel{outline:2px solid var(--ink);outline-offset:-2px;}
-  .th .used{position:absolute;top:4px;right:4px;background:var(--brown);color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;display:flex;align-items:center;justify-content:center;}
+  .th.sel{outline:3px solid var(--brown);outline-offset:-3px;}
+  .th.sel::after{content:'';position:absolute;inset:0;background:rgba(139,94,60,.22);pointer-events:none;}
+  .th .chk{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.9);border:2px solid var(--brown);color:#fff;font-size:12px;display:none;align-items:center;justify-content:center;z-index:2;line-height:1;}
+  .libmulti .th .chk{display:flex;}
+  .th.sel .chk{display:flex;background:var(--brown);}
+  .libmulti .th{cursor:pointer;}
+  .selbar b{color:var(--ink);}
+  .th .used{position:absolute;top:4px;left:4px;background:rgba(255,255,255,.88);color:var(--brown);border:1px solid var(--taupe);border-radius:999px;font-size:9px;padding:0 6px;line-height:15px;}
   .th .vid{position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.55);color:#fff;border-radius:999px;font-size:9.5px;padding:1px 7px;}
   .chip.over{border-color:var(--brown);background:var(--sand);}
   .insp{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
@@ -410,14 +416,16 @@
           <div class="btns" style="margin:10px 0 4px">
             <button class="btn sm" id="impFolder" type="button">Importer un dossier</button>
             <button class="btn sm ghost" id="impFiles" type="button">Ajouter photos / réels</button>
+            <button class="btn sm ghost" id="multiBtn" type="button">☑ Sélectionner</button>
           </div>
           <input type="file" id="fFolder" webkitdirectory multiple style="display:none">
           <input type="file" id="fFiles" accept="image/*,video/*" multiple style="display:none">
           <div class="msg" id="impMsg"></div>
                     <div class="chips" id="libCats" style="margin:12px 0 10px"></div>
           <div class="selbar" id="selBar" style="display:none">
-            <span>Photo sélectionnée : touche une case pour la placer</span>
+            <span id="selTxt">Photo sélectionnée : touche une case pour la placer</span>
             <div class="btns">
+              <button class="btn sm ghost" id="selAll" type="button" style="display:none">Tout sélectionner</button>
               <button class="btn sm ghost" id="selCat" type="button">Catégorie…</button>
               <button class="btn sm danger" id="selDel" type="button">Supprimer</button>
               <button class="btn sm ghost" id="selOff" type="button">Désélectionner</button>
@@ -758,6 +766,7 @@ function openFeed(id){
 data.ui=data.ui||{theme:'light',ratio:'133.33%'};
 var ui=data.ui;
 var EMPTY='#F3EBDD';
+var libMulti=false, libSel={}, libShown=[];
 var PH={}, db=null, dbOk=false, selPid=null, libCat='all', hist={}, libSrc='cur', libFor='';
 
 /* ---- photos : IndexedDB ---- */
@@ -948,9 +957,24 @@ function renderLib(){
   var used={};feedOf(fkey()).cells.forEach(function(c){if(c.pid)used[c.pid]=1;});
   var shown=ps.filter(function(p){return libCat==='all'||catKeyOf(p)===libCat;});
   $('libGrid').innerHTML=shown.length?shown.map(function(p){
-    return '<div class="th'+(selPid===p.id?' sel':'')+'" draggable="true" data-pid="'+p.id+'" title="'+esc(p.name)+'"><img src="'+p.data+'" alt="" draggable="false">'+(used[p.id]?'<span class="used">✓</span>':'')+(p.video?'<span class="vid">▶ '+fmtDur(p.dur||0)+'</span>':'')+'</div>';
+    var on=libMulti?!!libSel[p.id]:selPid===p.id;
+    return '<div class="th'+(on?' sel':'')+'" draggable="true" data-pid="'+p.id+'" title="'+esc(p.name)+'"><img src="'+p.data+'" alt="" draggable="false"><span class="chk">✓</span>'+(used[p.id]?'<span class="used">dans le feed</span>':'')+(p.video?'<span class="vid">▶ '+fmtDur(p.dur||0)+'</span>':'')+'</div>';
   }).join(''):'<div class="empty" style="grid-column:1/-1">Importe un dossier pour retrouver tes photos et réels ici.</div>';
-  $('selBar').style.display=selPid&&PH[selPid]?'block':'none';
+  libShown=shown.map(function(p){return p.id;});
+  $('libGrid').className='libgrid'+(libMulti?' libmulti':'');
+  $('multiBtn').textContent=libMulti?'✓ Terminer la sélection':'☑ Sélectionner';
+  $('multiBtn').className='btn sm '+(libMulti?'':'ghost');
+  if(libMulti){
+    Object.keys(libSel).forEach(function(id){if(!PH[id])delete libSel[id];});
+    var n=Object.keys(libSel).length;
+    $('selBar').style.display='block';
+    $('selTxt').innerHTML=n?'<b>'+n+' sélectionnée'+(n>1?'s':'')+'</b> · choisis une action, ou glisse-les sur une catégorie':'Touche les photos à sélectionner';
+    $('selAll').style.display='';$('selOff').textContent='Tout désélectionner';
+  }else{
+    $('selBar').style.display=selPid&&PH[selPid]?'block':'none';
+    $('selTxt').textContent='Photo sélectionnée : touche une case pour la placer';
+    $('selAll').style.display='none';$('selOff').textContent='Désélectionner';
+  }
 }
 $('libCats').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;libCat=b.getAttribute('data-cat');renderLib();});
 $('libCats').addEventListener('dragover',function(e){if(e.target.closest('button'))e.preventDefault();});
@@ -958,28 +982,43 @@ $('libCats').addEventListener('drop',function(e){
   var b=e.target.closest('button');if(!b)return;e.preventDefault();
   var t=''; try{t=e.dataTransfer.getData('text');}catch(x){}
   if(t.indexOf('photo:')!==0||b.getAttribute('data-cat')==='all')return;
-  var p=PH[t.slice(6)];if(!p)return;p.cat=b.getAttribute('data-cat');idbPut(p);renderLib();
+  var cat=b.getAttribute('data-cat'),ids=t.slice(6).split(','),n=0;
+  ids.forEach(function(id){var p=PH[id];if(p){p.cat=cat;idbPut(p);n++;}});
+  if(n){renderLib();toast(n+' fichier'+(n>1?'s':'')+' déplacé'+(n>1?'s':'')+' vers « '+cat+' »');}
 });
 $('libGrid').addEventListener('click',function(e){
   var t=e.target.closest('.th');if(!t)return;
-  var id=t.getAttribute('data-pid');selPid=(selPid===id)?null:id;renderFeed();
+  var id=t.getAttribute('data-pid');
+  if(libMulti){if(libSel[id])delete libSel[id];else libSel[id]=1;renderLib();return;}
+  selPid=(selPid===id)?null:id;renderFeed();
 });
 $('libGrid').addEventListener('dragstart',function(e){
   var t=e.target.closest('.th');if(!t)return;
-  try{e.dataTransfer.setData('text','photo:'+t.getAttribute('data-pid'));}catch(x){}
+  var did=t.getAttribute('data-pid'),dids=(libMulti&&libSel[did])?Object.keys(libSel):[did];
+  try{e.dataTransfer.setData('text','photo:'+dids.join(','));}catch(x){}
 });
-$('selOff').onclick=function(){selPid=null;renderFeed();};
+function selIds(){return libMulti?Object.keys(libSel).filter(function(id){return PH[id];}):(selPid&&PH[selPid]?[selPid]:[]);}
+$('multiBtn').onclick=function(){libMulti=!libMulti;libSel={};selPid=null;renderFeed();};
+$('selAll').onclick=function(){libShown.forEach(function(id){libSel[id]=1;});renderLib();};
+$('selOff').onclick=function(){if(libMulti){libSel={};renderLib();}else{selPid=null;renderFeed();}};
 $('selDel').onclick=function(){
-  if(!selPid||!confirm('Supprimer cette photo de la bibliothèque ?'))return;
-  var id=selPid;selPid=null;idbDel(id);
-  Object.keys(feed).forEach(function(m){feed[m].cells.forEach(function(c){if(c.pid===id)c.pid='';});});
-  Object.keys(feed).forEach(function(k){(feed[k].hl||[]).forEach(function(h){h.items=(h.items||[]).filter(function(x){return x!==id;});if(h.cover===id)h.cover='';});});
-  saveFeed();renderFeed();
+  var ids=selIds();if(!ids.length){toast('Aucune photo sélectionnée');return;}
+  if(!confirm(ids.length>1?'Supprimer ces '+ids.length+' fichiers de la bibliothèque ?':'Supprimer cette photo de la bibliothèque ?'))return;
+  selPid=null;libSel={};
+  ids.forEach(function(id){
+    idbDel(id);
+    Object.keys(feed).forEach(function(m){feed[m].cells.forEach(function(c){if(c.pid===id)c.pid='';});});
+    Object.keys(feed).forEach(function(k){(feed[k].hl||[]).forEach(function(h){h.items=(h.items||[]).filter(function(x){return x!==id;});if(h.cover===id)h.cover='';});});
+  });
+  saveFeed();renderFeed();toast(ids.length+' fichier'+(ids.length>1?'s':'')+' supprimé'+(ids.length>1?'s':''));
 };
 $('selCat').onclick=function(){
-  var p=PH[selPid];if(!p)return;
-  var n=prompt('Catégorie de cette photo :',p.cat);if(!n)return;
-  p.cat=n.trim()||p.cat;idbPut(p);renderLib();
+  var ids=selIds();if(!ids.length){toast('Aucune photo sélectionnée');return;}
+  var cats={};Object.keys(PH).forEach(function(k){cats[PH[k].cat]=1;});
+  var n=prompt('Déplacer '+ids.length+' fichier'+(ids.length>1?'s':'')+' vers quelle catégorie ?\n\nExistantes : '+Object.keys(cats).join(', '),ids.length===1?PH[ids[0]].cat:(libCat!=='all'?libCat:''));
+  if(!n||!n.trim())return;n=n.trim();
+  ids.forEach(function(id){PH[id].cat=n;idbPut(PH[id]);});
+  libSel={};renderLib();toast(ids.length+' fichier'+(ids.length>1?'s':'')+' déplacé'+(ids.length>1?'s':'')+' vers « '+n+' »');
 };
 $('impFolder').onclick=function(){$('fFolder').click();};
 $('impFiles').onclick=function(){$('fFiles').click();};
