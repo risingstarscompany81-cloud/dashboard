@@ -696,6 +696,16 @@ let subs = [];
 let editingId = null;
 const collapsedGroups = new Set();
 
+function updateContenuCounts(){
+  try{
+    document.querySelectorAll('.contenu-link').forEach(function(a){
+      var n=(a.querySelector('.contenu-name')||{}).textContent;
+      var m=a.querySelector('.contenu-meta');if(!n||!m)return;
+      var c=(accounts||[]).filter(function(x){return (x.model||'').trim().toLowerCase()===n.trim().toLowerCase();}).length;
+      if(c)m.textContent=c+' compte'+(c>1?'s':'');
+    });
+  }catch(e){}
+}
 /* ===================== Utils ===================== */
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
@@ -2035,7 +2045,7 @@ function newToolItems(){
   } else { notes = loadedNotes2; }
   renderNotes(); renderNotesFolder();
 
-  render(); renderTodos(); renderDaily(); renderSubs(); initWeather(); checkupInit(); showWelcomeIfNeeded();
+  updateContenuCounts(); render(); renderTodos(); renderDaily(); renderSubs(); initWeather(); checkupInit(); showWelcomeIfNeeded();
 
   const loadedFinances = await storageGet(FINANCES_KEY);
   renderFinances(loadedFinances);
