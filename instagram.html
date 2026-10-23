@@ -345,6 +345,7 @@
               <button class="btn sm ghost" id="undoBtn" type="button">↶ Annuler</button>
               <button class="btn sm ghost" id="redoBtn" type="button">↷ Rétablir</button>
               <button class="btn sm ghost" id="dupBtn" type="button">⧉ Dupliquer ce feed…</button>
+              <button class="btn sm ghost" id="hlCopyBtn" type="button">✦ Copier les highlights d'un autre compte…</button>
               <button class="btn sm ghost" id="addTop" type="button">+ Ligne en haut</button>
               <button class="btn sm ghost" id="addBot" type="button">+ Ligne en bas</button>
               <button class="btn sm" id="exportBtn" type="button">⇩ Exporter en image</button>
@@ -483,7 +484,7 @@
   <!-- HIGHLIGHTS -->
   <section class="sec" id="s-highlights">
     <h2>Highlights</h2>
-    <p class="lead">Organise les à la une du modèle sélectionné. Ils s'affichent aussi sur l'aperçu du feed.</p>
+    <p class="lead">Organise les à la une du compte sélectionné (chaque compte a les siens). Ils s'affichent aussi sur l'aperçu du feed.</p>
     <div class="card">
       <div class="hlbig" id="hlBig"></div>
       <div class="row" style="margin-top:14px">
@@ -733,7 +734,7 @@ $('bkFile').addEventListener('change',function(){
     PH={};selPid=null;hist={};
     idbClear(function(){
       (b.photos||[]).forEach(function(p){idbPut(p);});
-      cur=data.models[0];curAcc='';
+      cur=data.models[0];curAcc='';migrateHl();
       renderAll();toast('Sauvegarde restaurée');
     });
   };
@@ -893,7 +894,7 @@ function renderProfile(){
   var avs=f.avatar||(acc&&acc.photo)||'';
   var av=avs?'<img src="'+avs+'" alt="">':esc(disp.charAt(0).toUpperCase());
   $('fAv').innerHTML=av;$('tAv').innerHTML=av;
-  var hls=data.hl[cur]||[],edit=!document.body.classList.contains('view');
+  var hls=hlArr(),edit=!document.body.classList.contains('view');
   $('fHl').innerHTML=hls.map(function(h,i){return '<div class="hl" data-i="'+i+'"><i>'+hlThumbHtml(h)+'</i><span>'+esc(h.name)+'</span></div>';}).join('')+(edit?'<div class="hl add" data-add="1"><i>+</i><span>Nouveau</span></div>':'');
   $('fHl').style.display=(hls.length||edit)?'flex':'none';
 }
@@ -962,7 +963,7 @@ $('selDel').onclick=function(){
   if(!selPid||!confirm('Supprimer cette photo de la bibliothèque ?'))return;
   var id=selPid;selPid=null;idbDel(id);
   Object.keys(feed).forEach(function(m){feed[m].cells.forEach(function(c){if(c.pid===id)c.pid='';});});
-  Object.keys(data.hl).forEach(function(m){(data.hl[m]||[]).forEach(function(h){h.items=(h.items||[]).filter(function(x){return x!==id;});if(h.cover===id)h.cover='';});});saveData();
+  Object.keys(feed).forEach(function(k){(feed[k].hl||[]).forEach(function(h){h.items=(h.items||[]).filter(function(x){return x!==id;});if(h.cover===id)h.cover='';});});
   saveFeed();renderFeed();
 };
 $('selCat').onclick=function(){
@@ -1128,7 +1129,7 @@ function exportPng(){
   var f=feedOf(fkey()),dk=ui.theme==='dark',W=1080,pad=44;
   var bg=dk?'#000':'#fff',fg=dk?'#fff':'#262626',mut=dk?'#a8a8a8':'#737373',line=dk?'#262626':'#dbdbdb';
   var ratio=parseFloat(ui.ratio)/100,gap=3,cw=Math.floor((W-2*gap)/3),ch=Math.round(cw*ratio),rows=Math.ceil(f.cells.length/3);
-  var hls=data.hl[cur]||[],handle=f.handle||defHandle(),disp=f.disp||cur,accO=accOf();
+  var hls=hlArr(),handle=f.handle||defHandle(),disp=f.disp||cur,accO=accOf();
   var tmp=document.createElement('canvas').getContext('2d');tmp.font='30px Inter, Arial, sans-serif';
   var bioLines=f.bio?wrapText(tmp,f.bio,W-2*pad):[];
   var yName=340,yBio=yName+44,yHl=yBio+bioLines.length*40+40,head=yHl+(hls.length?190:20)+20;
@@ -1198,7 +1199,7 @@ function exportZip(){
   if(typeof JSZip==='undefined'){toast('ZIP indisponible : vérifie ta connexion');return;}
   var items=pubItems(),f=feedOf(fkey()),handle=f.handle||defHandle();
   if(!items.some(function(i){return i.src;})){toast('Ce feed ne contient aucune image');return;}
-  var hls=(data.hl[cur]||[]).filter(function(h){return hlItems(h).length;});
+  var hls=hlArr().filter(function(h){return hlItems(h).length;});
   var hlN=0;hls.forEach(function(h){hlN+=hlItems(h).length;});
   var zip=new JSZip(),L=[],missing=0,nV=0,pending=items.length+hlN;
   L.push('FEED @'+handle+' — '+cur);
@@ -1297,6 +1298,7 @@ $('dupGo').onclick=function(){
     if(dupMode==='all'){n.pid=c.pid;n.img=c.img;n.note=c.note;}
     return n;
   });
+  if(dupMode==='all')tf.hl=hlCopy(src.hl);
   saveFeed();$('dupOv').className='ov';
   var a=accounts.filter(function(x){return String(x.id)===String(tid);})[0];
   toast('Feed dupliqué vers '+(a?accLabel(a):'le compte'));
@@ -1441,6 +1443,30 @@ document.addEventListener('click',function(e){if(emoPop&&emoPop.style.display===
   b.addEventListener('click',function(e){e.stopPropagation();emoOpen(b,inp);});w.appendChild(b);
 });
 
+
+/* highlights propres à chaque compte (stockés dans le feed du compte) */
+function hlArr(){var f=feedOf(fkey());return f.hl=f.hl||[];}
+function hlCopy(a){return JSON.parse(JSON.stringify(a||[]));}
+function migrateHl(){
+  if(data.hlPerAccount)return;
+  Object.keys(data.hl||{}).forEach(function(m){
+    var src=data.hl[m]||[];if(!src.length)return;
+    var accs=accounts.filter(function(a){return mOf(a)===m;});
+    if(accs.length)accs.forEach(function(a){var f=feedOf('acc:'+a.id);if(!(f.hl&&f.hl.length))f.hl=hlCopy(src);});
+    else{var f=feedOf(m);if(!(f.hl&&f.hl.length))f.hl=hlCopy(src);}
+  });
+  data.hlPerAccount=true;saveFeed();saveData();
+}
+$('hlCopyBtn').onclick=function(){
+  var cands=[];
+  accounts.forEach(function(a){var f=feed['acc:'+a.id];if(f&&f.hl&&f.hl.length&&('acc:'+a.id)!==fkey())cands.push({k:'acc:'+a.id,l:accLabel(a)+' ('+mOf(a)+') — '+f.hl.length+' highlight(s)'});});
+  if(!cands.length){toast('Aucun autre compte n\'a de highlights');return;}
+  var n=prompt('Copier les highlights de quel compte ?\n\n'+cands.map(function(c,i){return (i+1)+' · '+c.l;}).join('\n')+'\n\nTape le numéro :','1');
+  var i=parseInt(n,10)-1;if(isNaN(i)||i<0||i>=cands.length)return;
+  if(hlArr().length&&!confirm('Remplacer les highlights actuels de ce compte ?'))return;
+  feedOf(fkey()).hl=hlCopy(feed[cands[i].k].hl);saveFeed();renderProfile();if(tab==='highlights')renderHl();toast('Highlights copiés');
+};
+
 /* ---- highlights : couverture, stories, éditeur, lecteur ---- */
 function hlItems(h){return (h.items||[]).filter(function(id){return PH[id];});}
 function hlCoverPid(h){if(h.cover&&PH[h.cover])return h.cover;var it=hlItems(h);return it.length?it[0]:'';}
@@ -1463,7 +1489,7 @@ function hlDrawPick(){
   var n=Object.keys(hlSel).length;$('hlPickOk').textContent=n?'Ajouter ('+n+')':'Ajouter';
 }
 function openHl(i){
-  var arr=data.hl[cur]||[];hlIdx=i;
+  var arr=hlArr();hlIdx=i;
   hlDraft=i>=0?{name:arr[i].name,icon:arr[i].icon||'✦',cover:arr[i].cover||'',items:(arr[i].items||[]).slice()}:{name:'',icon:'✦',cover:'',items:[]};
   hlSel={};hlPickCat='all';
   $('hlTitle').textContent=i>=0?'Modifier le highlight':'Nouveau highlight';
@@ -1493,17 +1519,17 @@ $('hlCancel').onclick=hlClose;
 $('hlSave').onclick=function(){
   var n=$('hlName').value.trim();if(!n){toast('Donne un nom au highlight');return;}
   hlDraft.name=n;hlDraft.icon=$('hlIcon').value.trim()||'✦';
-  var arr=data.hl[cur]=data.hl[cur]||[];
+  var arr=hlArr();
   if(hlIdx>=0)arr[hlIdx]=hlDraft;else arr.push(hlDraft);
-  saveData();hlClose();renderProfile();if(tab==='highlights')renderHl();toast('Highlight enregistré');
+  saveFeed();hlClose();renderProfile();if(tab==='highlights')renderHl();toast('Highlight enregistré');
 };
 $('hlDel').onclick=function(){
   if(hlIdx<0||!confirm('Supprimer ce highlight ? (les photos restent dans la bibliothèque)'))return;
-  data.hl[cur].splice(hlIdx,1);saveData();hlClose();renderProfile();if(tab==='highlights')renderHl();
+  hlArr().splice(hlIdx,1);saveFeed();hlClose();renderProfile();if(tab==='highlights')renderHl();
 };
 function hlMove(d){
-  var arr=data.hl[cur]||[],j=hlIdx+d;if(hlIdx<0||j<0||j>=arr.length)return;
-  var t=arr[hlIdx];arr[hlIdx]=arr[j];arr[j]=t;hlIdx=j;saveData();renderProfile();
+  var arr=hlArr(),j=hlIdx+d;if(hlIdx<0||j<0||j>=arr.length)return;
+  var t=arr[hlIdx];arr[hlIdx]=arr[j];arr[j]=t;hlIdx=j;saveFeed();renderProfile();
 }
 $('hlLeft').onclick=function(){hlMove(-1);};$('hlRight').onclick=function(){hlMove(1);};
 $('hlView').onclick=function(){var i=hlIdx;hlClose();openStory(i);};
@@ -1532,7 +1558,7 @@ function stShow(){
   }else img('');
 }
 function openStory(i){
-  var h=(data.hl[cur]||[])[i];if(!h)return;
+  var h=hlArr()[i];if(!h)return;
   stH=h;stList=hlItems(h);if(!stList.length){toast('Ce highlight est vide');return;}
   stPos=0;$('stName').textContent=h.name;$('stAv').innerHTML=hlThumbHtml(h);
   $('stOv').className='show';stShow();
@@ -1561,16 +1587,16 @@ document.addEventListener('keydown',function(e){if($('stOv').className!=='show')
 /* HIGHLIGHTS */
 var SUG=['Bienvenue','Lifestyle','Voyage','Fitness','Outfits','Q&A','Coulisses','Avis','Food','Mood'];
 function renderHl(){
-  var l=data.hl[cur]||[];
+  var l=hlArr();
   $('hlBig').innerHTML=l.length?l.map(function(h,i){return '<div class="hl"><i>'+hlThumbHtml(h)+'</i><span>'+esc(h.name)+'</span><button class="x" data-del="'+i+'">×</button></div>';}).join(''):'<div class="empty" style="width:100%">Aucun highlight pour '+esc(cur)+'</div>';
   $('hSug').innerHTML=SUG.map(function(s){return '<button class="chip" data-s="'+esc(s)+'">'+esc(s)+'</button>';}).join('');
 }
 function addHl(name,icon){
-  if(!name)return;(data.hl[cur]=data.hl[cur]||[]).push({name:name,icon:icon||'✦',cover:'',items:[]});saveData();renderHl();renderProfile();
+  if(!name)return;hlArr().push({name:name,icon:icon||'✦',cover:'',items:[]});saveFeed();renderHl();renderProfile();
 }
 $('hAdd').onclick=function(){addHl($('hName').value.trim(),$('hIcon').value.trim());$('hName').value='';$('hIcon').value='';};
 $('hSug').addEventListener('click',function(e){var b=e.target.closest('button');if(b)addHl(b.getAttribute('data-s'));});
-$('hlBig').addEventListener('click',function(e){var b=e.target.closest('.x');if(!b)return;data.hl[cur].splice(+b.getAttribute('data-del'),1);saveData();renderHl();});
+$('hlBig').addEventListener('click',function(e){var b=e.target.closest('.x');if(!b)return;hlArr().splice(+b.getAttribute('data-del'),1);saveFeed();renderHl();renderProfile();});
 
 
 /* ===================== Suivi des comptes ===================== */
@@ -1913,7 +1939,7 @@ function applyMode(){
 $('modeBtn').onclick=function(){viewMode=!viewMode;try{localStorage.setItem(KEY_MODE,viewMode?'view':'edit');}catch(e){}applyMode();showTab();};
 applyMode();
 renderInsp();showTab();
-idbOpen(function(){idbLoad(function(){migrateLegacy();cleanupModelFeeds();renderAll();});});
+idbOpen(function(){idbLoad(function(){migrateLegacy();cleanupModelFeeds();migrateHl();renderAll();});});
 </script>
 </body>
 </html>
