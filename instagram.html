@@ -62,6 +62,9 @@
   #stOv .sbody img,#stOv .sbody video{max-width:100%;max-height:100%;object-fit:contain;border-radius:10px;}
   #stOv .szl,#stOv .szr{position:absolute;top:0;bottom:0;width:40%;}
   #stOv .szl{left:0;} #stOv .szr{right:0;}
+  #stOv .sact{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:10px 12px 0;}
+  #stOv .sact .btn{padding:10px 16px;font-size:13px;}
+  #stOv .sact .btn.ghost{color:#fff;border-color:rgba(255,255,255,.5);background:transparent;}
   #stOv .snote{font-size:12px;color:#bbb;padding:8px 12px 14px;text-align:center;min-height:20px;}
 
   .viewbar{display:none;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px;}
@@ -526,7 +529,7 @@
     <div style="display:flex;gap:6px"><button class="btn sm ghost" id="hlCancel" type="button">Annuler</button><button class="btn sm" id="hlSave" type="button">Enregistrer</button></div>
   </div>
 </div></div>
-<div id="stOv"><div class="sbars" id="stBars"></div><div class="shead"><span class="sav" id="stAv"></span><span id="stName"></span><button class="sx" id="stX" type="button">×</button></div><div class="sbody" id="stBody"><div class="szl" id="stL"></div><div class="szr" id="stR"></div></div><div class="snote" id="stNote"></div></div>
+<div id="stOv"><div class="sbars" id="stBars"></div><div class="shead"><span class="sav" id="stAv"></span><span id="stName"></span><button class="sx" id="stX" type="button">×</button></div><div class="sbody" id="stBody"><div class="szl" id="stL"></div><div class="szr" id="stR"></div></div><div class="sact" id="stAct"><button class="btn" id="stSave" type="button">⇩ Enregistrer</button><button class="btn ghost" id="stPick" type="button" style="display:none">📂 Ajouter la vidéo d'origine…</button><input type="file" id="stFile" accept="video/*,.mov,.mp4,.m4v" style="display:none"></div><div class="snote" id="stNote"></div></div>
 <div class="ov" id="accOv"><div class="modal">
   <h3 id="accModalTitle">Ajouter un compte</h3>
   <label for="acc-name">Nom du compte</label><input id="acc-name" type="text" placeholder="Ex : @moncompte">
@@ -1511,20 +1514,20 @@ $('fHl').addEventListener('click',function(e){
   var i=+d.getAttribute('data-i');if(view)openStory(i);else openHl(i);
 });
 /* lecteur de stories */
-var stH=null,stList=[],stPos=0,stUrl='';
+var stH=null,stList=[],stPos=0,stUrl='',stFileCur=null;
 function stFree(){if(stUrl){try{URL.revokeObjectURL(stUrl);}catch(e){}stUrl='';}}
 function stShow(){
   stFree();
   var id=stList[stPos],p=PH[id];if(!p){stClose();return;}
   $('stBars').innerHTML=stList.map(function(x,i){return '<i class="'+(i<=stPos?'on':'')+'"></i>';}).join('');
   var old=$('stBody').querySelector('img,video');if(old)old.parentNode.removeChild(old);
-  var body=$('stBody');$('stNote').textContent='';
+  var body=$('stBody');$('stNote').textContent='';stFileCur=null;$('stPick').style.display='none';$('stSave').textContent='⇩ Enregistrer';
   function img(note){var im=document.createElement('img');im.src=p.data;body.insertBefore(im,body.firstChild);$('stNote').textContent=note||'';}
   if(p.video){
     vidGet(id,function(file){
       if(id!==stList[stPos])return;
-      if(file){stUrl=URL.createObjectURL(file);var v=document.createElement('video');v.src=stUrl;v.setAttribute('playsinline','');v.controls=true;v.autoplay=true;v.muted=true;body.insertBefore(v,body.firstChild);}
-      else img('▶ Réel : la vidéo entière est disponible sur l\'ordinateur où tu l\'as importée.');
+      if(file){stFileCur=file;$('stSave').textContent='⇩ Enregistrer la vidéo';stUrl=URL.createObjectURL(file);var v=document.createElement('video');v.src=stUrl;v.setAttribute('playsinline','');v.controls=true;v.autoplay=true;v.muted=true;body.insertBefore(v,body.firstChild);}
+      else{img('▶ Réel : la vidéo entière n\'est pas sur cet appareil. Ajoute-la depuis Fichiers (dossier dézippé du ZIP) pour la lire et l\'enregistrer.');$('stPick').style.display='';$('stSave').textContent='⇩ Enregistrer la couverture';}
     });
   }else img('');
 }
@@ -1536,6 +1539,21 @@ function openStory(i){
 }
 function stClose(){$('stOv').className='';stFree();var old=$('stBody').querySelector('img,video');if(old)old.parentNode.removeChild(old);}
 $('stX').onclick=stClose;
+$('stPick').onclick=function(){$('stFile').click();};
+$('stFile').addEventListener('change',function(){
+  var f=this.files&&this.files[0];this.value='';if(!f)return;
+  var id=stList[stPos];
+  vidPut(id,f,function(ok){if(ok){toast('Vidéo ajoutée');stShow();}else toast('Vidéo non conservée (stockage indisponible)');});
+});
+$('stSave').onclick=function(){
+  var id=stList[stPos],p=PH[id];if(!p)return;
+  var file=stFileCur||dataToFile(p.data,slug(p.name)+(p.video?'_couverture':'')+'.jpg');
+  if(stFileCur&&!stFileCur.type)file=new File([stFileCur],p.name,{type:'video/mp4'});
+  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+    navigator.share({files:[file]}).catch(function(e){if(!e||e.name!=='AbortError')dl();});
+  }else dl();
+  function dl(){var a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name||p.name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(a.href);},5000);}
+};
 $('stR').onclick=function(){if(stPos<stList.length-1){stPos++;stShow();}else stClose();};
 $('stL').onclick=function(){if(stPos>0){stPos--;stShow();}};
 document.addEventListener('keydown',function(e){if($('stOv').className!=='show')return;if(e.key==='Escape')stClose();else if(e.key==='ArrowRight')$('stR').onclick();else if(e.key==='ArrowLeft')$('stL').onclick();});
