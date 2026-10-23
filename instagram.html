@@ -39,6 +39,10 @@
   #fHl .hl{cursor:pointer;}
   body.view #fHl .hl.add{display:none;}
   .modal.wide{max-width:560px;}
+  .cpgrp{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px;}
+  .cprow{display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:14px;cursor:pointer;}
+  .cprow input{width:auto;margin:0;}
+  .cprow small{color:var(--faint);margin-left:auto;font-size:11.5px;}
   .hlitems{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px;}
   .hit{position:relative;padding-top:150%;background:var(--sand);border-radius:8px;overflow:hidden;}
   .hit img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;}
@@ -526,9 +530,15 @@
     <div class="btns" style="margin-top:8px"><button class="btn sm" id="hlPickOk" type="button">Ajouter</button><button class="btn sm ghost" id="hlPickCancel" type="button">Fermer</button></div>
   </div>
   <div class="mfoot">
-    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm danger" id="hlDel" type="button">Supprimer</button><button class="btn sm ghost" id="hlLeft" type="button" title="Déplacer à gauche">←</button><button class="btn sm ghost" id="hlRight" type="button" title="Déplacer à droite">→</button><button class="btn sm ghost" id="hlView" type="button">▶ Voir</button></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm danger" id="hlDel" type="button">Supprimer</button><button class="btn sm ghost" id="hlLeft" type="button" title="Déplacer à gauche">←</button><button class="btn sm ghost" id="hlRight" type="button" title="Déplacer à droite">→</button><button class="btn sm ghost" id="hlView" type="button">▶ Voir</button><button class="btn sm ghost" id="hlCpBtn" type="button">⧉ Copier vers…</button></div>
     <div style="display:flex;gap:6px"><button class="btn sm ghost" id="hlCancel" type="button">Annuler</button><button class="btn sm" id="hlSave" type="button">Enregistrer</button></div>
   </div>
+</div></div>
+<div class="ov" id="hlCpOv"><div class="modal">
+  <h3>Copier ce highlight vers…</h3>
+  <p class="note" style="margin:2px 0 8px">Coche les comptes (de n'importe quel modèle) : le highlight est <b>ajouté</b>, sans toucher à leurs autres highlights.</p>
+  <div id="hlCpList"></div>
+  <div class="mfoot" style="justify-content:flex-end"><button class="btn sm ghost" id="hlCpCancel" type="button">Annuler</button><button class="btn sm" id="hlCpGo" type="button">Copier</button></div>
 </div></div>
 <div id="stOv"><div class="sbars" id="stBars"></div><div class="shead"><span class="sav" id="stAv"></span><span id="stName"></span><button class="sx" id="stX" type="button">×</button></div><div class="sbody" id="stBody"><div class="szl" id="stL"></div><div class="szr" id="stR"></div></div><div class="sact" id="stAct"><button class="btn" id="stSave" type="button">⇩ Enregistrer</button><button class="btn ghost" id="stPick" type="button" style="display:none">📂 Ajouter la vidéo d'origine…</button><input type="file" id="stFile" accept="video/*,.mov,.mp4,.m4v" style="display:none"></div><div class="snote" id="stNote"></div></div>
 <div class="ov" id="accOv"><div class="modal">
@@ -1495,7 +1505,7 @@ function openHl(i){
   $('hlTitle').textContent=i>=0?'Modifier le highlight':'Nouveau highlight';
   $('hlName').value=hlDraft.name;$('hlIcon').value=hlDraft.icon;
   $('hlPick').style.display='none';
-  ['hlDel','hlLeft','hlRight','hlView'].forEach(function(id){$(id).style.display=i>=0?'':'none';});
+  ['hlDel','hlLeft','hlRight','hlView','hlCpBtn'].forEach(function(id){$(id).style.display=i>=0?'':'none';});
   hlDrawItems();$('hlOv').className='ov show';
 }
 function hlClose(){$('hlOv').className='ov';}
@@ -1539,6 +1549,34 @@ $('fHl').addEventListener('click',function(e){
   if(d.getAttribute('data-add')){if(!view)openHl(-1);return;}
   var i=+d.getAttribute('data-i');if(view)openStory(i);else openHl(i);
 });
+
+/* copier un highlight vers d'autres comptes (ajout) */
+$('hlCpBtn').onclick=function(){
+  if(hlIdx<0)return;
+  var cur0=fkey(),by={};
+  accounts.forEach(function(a){if('acc:'+a.id===cur0)return;(by[mOf(a)]=by[mOf(a)]||[]).push(a);});
+  var models=Object.keys(by);
+  if(!models.length){toast('Aucun autre compte');return;}
+  $('hlCpList').innerHTML=models.map(function(m){
+    return '<div class="cpgrp">'+esc(m)+'</div>'+by[m].map(function(a){var f=feed['acc:'+a.id],n=f&&f.hl?f.hl.length:0;
+      return '<label class="cprow"><input type="checkbox" data-id="'+esc(a.id)+'"> '+esc(accLabel(a))+'<small>'+n+' highlight'+(n>1?'s':'')+'</small></label>';}).join('');
+  }).join('');
+  $('hlCpOv').className='ov show';
+};
+$('hlCpCancel').onclick=function(){$('hlCpOv').className='ov';};
+$('hlCpGo').onclick=function(){
+  var ids=[].slice.call($('hlCpList').querySelectorAll('input:checked')).map(function(i){return i.getAttribute('data-id');});
+  if(!ids.length){toast('Coche au moins un compte');return;}
+  var h=hlCopy([{name:$('hlName').value.trim()||hlDraft.name,icon:$('hlIcon').value.trim()||'✦',cover:hlDraft.cover,items:hlDraft.items.filter(function(x){return PH[x];})}])[0];
+  var dups=ids.filter(function(id){var f=feed['acc:'+id];return f&&(f.hl||[]).some(function(x){return x.name===h.name;});});
+  var replace=dups.length&&confirm('Un highlight « '+h.name+' » existe déjà chez '+dups.length+' de ces comptes.\n\nOK = le remplacer\nAnnuler = l\'ajouter quand même en plus');
+  ids.forEach(function(id){
+    var f=feedOf('acc:'+id);f.hl=f.hl||[];var c=hlCopy([h])[0];
+    var k=replace?f.hl.findIndex(function(x){return x.name===h.name;}):-1;
+    if(k>=0)f.hl[k]=c;else f.hl.push(c);
+  });
+  saveFeed();$('hlCpOv').className='ov';toast('Highlight copié vers '+ids.length+' compte'+(ids.length>1?'s':''));
+};
 /* lecteur de stories */
 var stH=null,stList=[],stPos=0,stUrl='',stFileCur=null;
 function stFree(){if(stUrl){try{URL.revokeObjectURL(stUrl);}catch(e){}stUrl='';}}
