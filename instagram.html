@@ -1044,9 +1044,10 @@ bindField('tHandle','handle');bindField('tDisp','disp');bindField('tBio','bio');
 $('avBtn').onclick=function(){$('avFile').click();};
 $('avFile').addEventListener('change',function(){
   var file=this.files&&this.files[0];this.value='';if(!file)return;
-  resizeFile(file,240,function(d){if(!d)return;feedOf(fkey()).avatar=d;saveFeed();renderProfile();});
+  resizeFile(file,240,function(d){if(!d)return;feedOf(fkey()).avatar=d;saveFeed();renderProfile();
+    resizeFile(file,1080,function(h){if(!h)return;feedOf(fkey()).avatarHD=h;saveFeed();});});   // grande version, uniquement pour le ZIP
 });
-$('avDel').onclick=function(){delete feedOf(fkey()).avatar;saveFeed();renderProfile();};
+$('avDel').onclick=function(){delete feedOf(fkey()).avatar;delete feedOf(fkey()).avatarHD;saveFeed();renderProfile();};
 $('segTheme').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;ui.theme=b.getAttribute('data-v');saveData();renderFeed();});
 $('segRatio').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;ui.ratio=b.getAttribute('data-v');saveData();renderFeed();});
 $('undoBtn').onclick=undo;$('redoBtn').onclick=redo;
@@ -1260,6 +1261,9 @@ function exportZip(){
   L.push('Les images sont reduites (720 px) : pour publier une photo, utilise le fichier d\'origine indique ci-dessous.');
   L.push('Les reels : la video d\'origine est dans ce ZIP (fichier *_reel_*) avec une image de couverture (*_couverture.jpg).');
   L.push('');
+  var pf=feedOf(fkey()),pAcc=accOf(),pSrc=pf.avatarHD||pf.avatar||(pAcc&&pAcc.photo)||'';
+  if(pSrc&&pSrc.indexOf(',')>0){zip.file('photo-de-profil.jpg',pSrc.split(',')[1],{base64:true});
+    L.push('PHOTO DE PROFIL : photo-de-profil.jpg'+(pf.avatarHD?'':' (petite taille : re-ajoute la photo de profil dans le dashboard pour avoir la haute qualite)'));L.push('');}
   toast('Préparation du ZIP…');
   var lines=new Array(items.length),hlLines=hls.map(function(){return [];});
   function finish(){
